@@ -1,0 +1,1 @@
+export AZURE_SQL_CONNECTION="DRIVER={ODBC Driver 18 for SQL Server};SERVER=tcp:proj001.database.windows.net,1433;DATABASE=proj001;UID=ashrufr;PWD=/bnK4th1r;"
