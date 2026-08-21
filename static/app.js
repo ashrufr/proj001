@@ -43,13 +43,7 @@ const CAT_STYLE = {
   'Nail & Beauty': { grad: 'linear-gradient(135deg,#E8B96A 0%,#D29A3F 100%)', icon: I.heart },
 };
 
-const BIZ_STYLE = {
-  'Bloom Hair Studio': { grad: 'linear-gradient(135deg,#F09A83,#D06346)', initial: 'B' },
-  'The Sharp Edge Barbershop': { grad: 'linear-gradient(135deg,#7D82B5,#4A4E85)', initial: 'S' },
-  'Luxe Colour Lab': { grad: 'linear-gradient(135deg,#A3C9B5,#4F8A6C)', initial: 'L' },
-  'Crown Cuts Barbershop': { grad: 'linear-gradient(135deg,#E8B96A,#B07F2F)', initial: 'C' },
-};
-function bizStyle(name) { return BIZ_STYLE[name] || { grad: 'linear-gradient(135deg,#A8A29E,#78716C)', initial: (name || '?').charAt(0).toUpperCase() }; }
+function bizStyle(name) { return { grad: 'linear-gradient(135deg,#A8A29E,#78716C)', initial: (name || '?').charAt(0).toUpperCase() }; }
 
 /* ---------------- State ---------------- */
 const STORE_KEY = 'hairnet_state_v1';
@@ -72,40 +66,13 @@ function iso(d) {
 function fromISO(s) { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); }
 function addDays(d, n) { const c = new Date(d); c.setDate(c.getDate() + n); return c; }
 
-function seed() {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const services = [
-    { id: 's1', business: 'Bloom Hair Studio', name: "Women's Precision Cut", desc: 'A tailored cut styled to your face shape and lifestyle. Includes consultation, wash and blow-dry finish.', duration: 45, price: 50, category: 'Haircuts & Styling' },
-    { id: 's2', business: 'Bloom Hair Studio', name: 'Balayage & Colour', desc: 'Hand-painted highlights with a seamless, sun-kissed finish. Includes toner and conditioning treatment.', duration: 120, price: 180, category: 'Colouring & Treatments' },
-    { id: 's3', business: 'The Sharp Edge Barbershop', name: 'Classic Barber Cut', desc: 'A clean, precise cut with clipper and scissor work. Hot towel finish and line-up included.', duration: 30, price: 35, category: 'Barbershop' },
-    { id: 's4', business: 'The Sharp Edge Barbershop', name: 'Beard Sculpt & Trim', desc: 'Shape, define and detail your beard with precision trimming and a hot towel treatment.', duration: 20, price: 25, category: 'Barbershop' },
-    { id: 's5', business: 'Luxe Colour Lab', name: 'Full Colour Transformation', desc: 'Complete head colour with premium products. Consultation, application, cut and style included.', duration: 150, price: 220, category: 'Colouring & Treatments' },
-    { id: 's6', business: 'Luxe Colour Lab', name: 'Keratin Smoothing Treatment', desc: 'Frizz-eliminating keratin treatment that leaves hair silky smooth for up to 3 months.', duration: 90, price: 150, category: 'Colouring & Treatments' },
-    { id: 's7', business: 'Crown Cuts Barbershop', name: "Gentleman's Cut & Style", desc: 'A modern or classic cut styled to perfection. Includes scalp massage and finishing product.', duration: 40, price: 45, category: 'Barbershop' },
-    { id: 's8', business: 'Crown Cuts Barbershop', name: "Kids' Haircut", desc: "A fun, patient cut for children under 12. Quick and comfortable with a friendly touch.", duration: 25, price: 25, category: 'Haircuts & Styling' },
-  ];
-
-  const appts = [];
-  const mk = (id, sid, daysFromNow, time, status) => {
-    const s = services.find(x => x.id === sid);
-    appts.push({
-      id, serviceId: sid, business: s.business, serviceName: s.name, category: s.category,
-      price: s.price, duration: s.duration, date: iso(addDays(today, daysFromNow)), time,
-      notes: '', status, createdAt: Date.now(),
-    });
-  };
-  mk('a1', 's1', -3, '10:00', 'completed');
-  mk('a2', 's3', -5, '14:00', 'cancelled');
-  mk('a3', 's7', 1, '10:00', 'confirmed');
-  mk('a4', 's5', 2, '14:00', 'pending');
-
+function emptyState() {
   return {
     user: null,
-    services,
-    appointments: appts,
+    services: [],
+    appointments: [],
     hours: defaultHours(),
-    businessName: 'Bloom Hair Studio',
+    businessName: 'My Business',
   };
 }
 
@@ -114,7 +81,7 @@ let state = (function () {
     const raw = localStorage.getItem(STORE_KEY);
     if (raw) return JSON.parse(raw);
   } catch (e) { /* ignore */ }
-  return seed();
+  return emptyState();
 })();
 
 function persist() { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ } }
@@ -404,9 +371,10 @@ function viewHome() {
 }
 
 function mockupCard() {
-  const s = byId('s1') || state.services[0];
+  const s = state.services[0];
+  if (!s) return '';
   const bs = bizStyle(s.business);
-  const cs = CAT_STYLE[s.category];
+  const cs = CAT_STYLE[s.category] || { grad: 'linear-gradient(135deg,#A8A29E,#78716C)', icon: I.spark };
   return `
   <div class="mockup">
     <div class="mockup-head">
@@ -431,7 +399,7 @@ function mockupCard() {
       <div class="slot-chip">11:00 AM</div>
       <div class="slot-chip">1:00 PM</div>
     </div>
-    <button class="btn btn-primary btn-block" onclick="App.go('#/service/s1')">Confirm booking ${I.arrowRight}</button>
+    <button class="btn btn-primary btn-block" onclick="App.go('#/service/${esc(s.id)}')">Confirm booking ${I.arrowRight}</button>
   </div>`;
 }
 

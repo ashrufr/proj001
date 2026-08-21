@@ -13,7 +13,6 @@ import os
 import re
 import secrets
 import uuid
-from datetime import datetime, date, timedelta
 
 import pyodbc
 
@@ -27,48 +26,6 @@ CONN_STR = os.environ.get(
 )
 
 VALID_STATUSES = {"pending", "confirmed", "cancelled", "completed"}
-
-SERVICES = [
-    ("s1", "Bloom Hair Studio", "Women's Precision Cut",
-     "A tailored cut styled to your face shape and lifestyle. Includes consultation, wash and blow-dry finish.",
-     45, 50.0, "Haircuts & Styling"),
-    ("s2", "Bloom Hair Studio", "Balayage & Colour",
-     "Hand-painted highlights with a seamless, sun-kissed finish. Includes toner and conditioning treatment.",
-     120, 180.0, "Colouring & Treatments"),
-    ("s3", "The Sharp Edge Barbershop", "Classic Barber Cut",
-     "A clean, precise cut with clipper and scissor work. Hot towel finish and line-up included.",
-     30, 35.0, "Barbershop"),
-    ("s4", "The Sharp Edge Barbershop", "Beard Sculpt & Trim",
-     "Shape, define and detail your beard with precision trimming and a hot towel treatment.",
-     20, 25.0, "Barbershop"),
-    ("s5", "Luxe Colour Lab", "Full Colour Transformation",
-     "Complete head colour with premium products. Consultation, application, cut and style included.",
-     150, 220.0, "Colouring & Treatments"),
-    ("s6", "Luxe Colour Lab", "Keratin Smoothing Treatment",
-     "Frizz-eliminating keratin treatment that leaves hair silky smooth for up to 3 months.",
-     90, 150.0, "Colouring & Treatments"),
-    ("s7", "Crown Cuts Barbershop", "Gentleman's Cut & Style",
-     "A modern or classic cut styled to perfection. Includes scalp massage and finishing product.",
-     40, 45.0, "Barbershop"),
-    ("s8", "Crown Cuts Barbershop", "Kids' Haircut",
-     "A fun, patient cut for children under 12. Quick and comfortable with a friendly touch.",
-     25, 25.0, "Haircuts & Styling"),
-]
-
-HOURS = {
-    1: ("09:00", "18:00"), 2: ("09:00", "18:00"), 3: ("09:00", "18:00"),
-    4: ("09:00", "18:00"), 5: ("09:00", "20:00"), 6: ("09:00", "16:00"),
-}
-
-APPOINTMENTS = [
-    ("a1", "s1", -3, "10:00", "completed", "Talia Moore"),
-    ("a2", "s3", -5, "14:00", "cancelled", "Devon Carter"),
-    ("a3", "s7", 1, "10:00", "confirmed", "Priya Nair"),
-    ("a4", "s5", 2, "14:00", "pending", "Jordan Lee"),
-]
-
-BUSINESS_NAME = "Bloom Hair Studio"
-SEED_BUSINESS_PASSWORD = "hairnet123"
 
 
 def connect():
@@ -203,79 +160,18 @@ CREATE TABLE Meta (
 """
 
 
-def init_db(force=False):
+def init_db():
+    """Create the schema. Existing tables and data are left untouched."""
     conn = connect()
     try:
         cursor = conn.cursor()
-
-        if force:
-            for table in ("Appointments", "Services", "Hours", "Users", "Businesses", "Meta"):
-                cursor.execute(f"IF EXISTS (SELECT * FROM sys.tables WHERE name = '{table}') DROP TABLE {table}")
-            conn.commit()
-
         for stmt in SCHEMA_SQL.strip().split(";"):
             stmt = stmt.strip()
             if stmt:
                 cursor.execute(stmt)
         conn.commit()
-
-        count = cursor.execute("SELECT COUNT(*) FROM Services").fetchone()[0]
-        if force or count == 0:
-            for table in ("Appointments", "Hours", "Services", "Businesses", "Users", "Meta"):
-                cursor.execute(f"DELETE FROM {table}")
-            _populate(conn)
-            for (_sid, biz, *_rest) in SERVICES:
-                cursor.execute(
-                    "UPDATE Businesses SET password_hash = ? WHERE name = ?",
-                    (hash_password(SEED_BUSINESS_PASSWORD), biz),
-                )
-            conn.commit()
     finally:
         conn.close()
-
-
-def _populate(conn):
-    today = date.today()
-    cursor = conn.cursor()
-
-    businesses = {}
-    for (_, biz, *_rest) in SERVICES:
-        if biz not in businesses:
-            businesses[biz] = _new_id("b")
-            cursor.execute(
-                "INSERT INTO Businesses (id, name) VALUES (?, ?)",
-                (businesses[biz], biz),
-            )
-
-    for (sid, biz, name, desc, dur, price, cat) in SERVICES:
-        cursor.execute(
-            "INSERT INTO Services (id, business_id, name, description, duration, price, category) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (sid, businesses[biz], name, desc, dur, price, cat),
-        )
-
-    for dow, (open_t, close_t) in HOURS.items():
-        cursor.execute(
-            "INSERT INTO Hours (day_of_week, open_time, close_time) VALUES (?, ?, ?)",
-            (dow, open_t, close_t),
-        )
-
-    by_id = {s[0]: s for s in SERVICES}
-    for (aid, sid, offset, atime, status, cname) in APPOINTMENTS:
-        _sid, biz, name, _desc, dur, price, cat = by_id[sid]
-        dt = (today + timedelta(days=offset)).isoformat()
-        cursor.execute(
-            "INSERT INTO Appointments "
-            "(id, service_id, business, service_name, category, price, duration, "
-            "date, time, customer_name, notes, status, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?, SYSUTCDATETIME())",
-            (aid, sid, biz, name, cat, price, dur, dt, atime, cname, status),
-        )
-
-    cursor.execute(
-        "INSERT INTO Meta ([key], value) VALUES ('business_name', ?)",
-        (BUSINESS_NAME,),
-    )
 
 
 # ---------------------------------------------------------------------------
