@@ -34,6 +34,18 @@ def _clear_user():
         db.clear_user(token=token)
 
 
+def _owns_appointment(user, appt):
+    """True if this user may see/manage the appointment: it's their booking,
+    or they are the provider of the business it was booked with."""
+    if not user or not appt:
+        return False
+    if appt.get("customerId") == user["id"]:
+        return True
+    if user.get("role") == "provider":
+        return appt.get("business") == db.get_user_business(user["id"])
+    return False
+
+
 # ---------------------------------------------------------------------------
 # static files
 # ---------------------------------------------------------------------------
@@ -48,15 +60,13 @@ def index():
 @app.route("/api/bootstrap")
 def api_bootstrap():
     user = _current_user()
-    state = db.get_full_state()
+    state = db.get_full_state(viewer=user)
     state["user"] = user
+    if user and user.get("role") == "provider":
+        business = db.get_user_business(user["id"])
+        if business:
+            state["businessName"] = business
     return jsonify(state)
-
-
-@app.route("/api/state", methods=["POST"])
-def api_import_state():
-    db.import_state(request.get_json())
-    return jsonify({"ok": True})
 
 
 # ---------------------------------------------------------------------------
@@ -95,23 +105,51 @@ def api_delete_service(service_id):
 # ---------------------------------------------------------------------------
 @app.route("/api/appointments", methods=["GET"])
 def api_list_appointments():
-    return jsonify(db.list_appointments())
+    user = _current_user()
+    if not user:
+        return jsonify({"error": "not signed in"}), 401
+    if user["role"] == "provider":
+        business = db.get_user_business(user["id"])
+        if not business:
+            return jsonify([])
+        return jsonify(db.list_appointments(business=business))
+    return jsonify(db.list_appointments(customer_id=user["id"]))
 
 
 @app.route("/api/appointments", methods=["POST"])
 def api_create_appointment():
-    return jsonify(db.create_appointment(request.get_json())), 201
+    user = _current_user()
+    if not user:
+        return jsonify({"error": "sign in to book an appointment"}), 401
+    data = request.get_json() or {}
+    data["customerId"] = user["id"]
+    return jsonify(db.create_appointment(data)), 201
 
 
 @app.route("/api/appointments/<appointment_id>", methods=["GET"])
 def api_get_appointment(appointment_id):
+    user = _current_user()
+    if not user:
+        return jsonify({"error": "not signed in"}), 401
     row = db.get_appointment(appointment_id)
-    return jsonify(row) if row else (jsonify({"error": "not found"}), 404)
+    if not row or not _owns_appointment(user, row):
+        return jsonify({"error": "not found"}), 404
+    return jsonify(row)
 
 
 @app.route("/api/appointments/<appointment_id>", methods=["PATCH"])
 def api_update_appointment(appointment_id):
-    data = request.get_json()
+    user = _current_user()
+    if not user:
+        return jsonify({"error": "not signed in"}), 401
+    row = db.get_appointment(appointment_id)
+    if not row or not _owns_appointment(user, row):
+        return jsonify({"error": "not found"}), 404
+    data = request.get_json() or {}
+    # Customers may only cancel their own bookings; the provider controls
+    # confirming/completing them.
+    if user["role"] != "provider" and data.get("status") != "cancelled":
+        return jsonify({"error": "customers can only cancel appointments"}), 403
     try:
         row = db.update_appointment_status(appointment_id, data.get("status"))
     except ValueError as exc:
@@ -121,6 +159,12 @@ def api_update_appointment(appointment_id):
 
 @app.route("/api/appointments/<appointment_id>", methods=["DELETE"])
 def api_delete_appointment(appointment_id):
+    user = _current_user()
+    if not user:
+        return jsonify({"error": "not signed in"}), 401
+    row = db.get_appointment(appointment_id)
+    if not row or not _owns_appointment(user, row):
+        return jsonify({"error": "not found"}), 404
     db.delete_appointment(appointment_id)
     return jsonify({"ok": True})
 
@@ -170,6 +214,7 @@ def api_signup():
     _set_user(user, token)
     if data.get("role") == "provider" and data.get("business"):
         db.set_business_name(data["business"])
+        db.set_user_business(user["id"], data["business"])
         try:
             db.set_business_password(data["business"], data.get("password", ""))
         except ValueError as exc:

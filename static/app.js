@@ -1253,12 +1253,14 @@ App.confirmBooking = function (id) {
   const notes = (document.getElementById('notes') && document.getElementById('notes').value) || sessionStorage.getItem('ae_notes') || '';
   const customerName = (document.getElementById('customerName') && document.getElementById('customerName').value.trim())
     || (state.user && state.user.name) || '';
+  if (!state.user) { toast('Please sign in to book an appointment.'); App.go('#/account'); return; }
   if (!s || !time) { toast('Please pick a time slot first.'); return; }
   if (!customerName) { toast('Please add your name before booking.'); return; }
   if (slotState(date, time, fromISO(date).getDay()) !== 'available') { toast('That slot is no longer available — pick another.'); return; }
   const appt = {
     id: uid(), serviceId: s.id, business: s.business, serviceName: s.name, category: s.category,
-    price: s.price, duration: s.duration, date, time, customerName, notes, status: 'pending', createdAt: Date.now(),
+    price: s.price, duration: s.duration, date, time, customerName,
+    customerId: state.user.id, notes, status: 'pending', createdAt: Date.now(),
   };
   state.appointments.push(appt);
   persist();
@@ -1545,7 +1547,7 @@ async function loadInitialState() {
   render();
   try {
     const remote = await apiClient.bootstrap();
-    if (remote && remote.services && remote.services.length) {
+    if (remote && Array.isArray(remote.services)) {
       state = normalizeRemote(remote);
       persist();
       render();
@@ -1569,8 +1571,14 @@ async function pollAppointments() {
   try {
     const remote = await apiClient.appointments();
     if (!Array.isArray(remote)) return;
+    // The server only returns this user's appointments; drop any stale local
+    // entries that don't belong to the signed-in account.
+    const mine = a => state.user && (
+      (a.customerId || '') === state.user.id ||
+      (state.user.role === 'provider' && a.business === state.businessName)
+    );
     const merged = remote.concat(
-      state.appointments.filter(a => !remote.some(r => r.id === a.id))
+      state.appointments.filter(a => !remote.some(r => r.id === a.id) && mine(a))
     ).sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
     const next = JSON.stringify(merged);
     if (next === lastApptsJson) return;

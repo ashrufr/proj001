@@ -140,10 +140,14 @@ CREATE TABLE Appointments (
   date NVARCHAR(10) NOT NULL,
   time NVARCHAR(5) NOT NULL,
   customer_name NVARCHAR(200) NOT NULL DEFAULT '',
+  customer_id NVARCHAR(20) NULL REFERENCES Users(id),
   notes NVARCHAR(MAX) NOT NULL DEFAULT '',
   status NVARCHAR(20) NOT NULL DEFAULT 'pending',
   created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
 );
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Appointments') AND name = 'customer_id')
+ALTER TABLE Appointments ADD customer_id NVARCHAR(20) NULL;
 
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Hours')
 CREATE TABLE Hours (
@@ -282,6 +286,7 @@ def _appt_to_dict(row_dict):
         "date": row_dict["date"],
         "time": row_dict["time"],
         "customerName": row_dict["customer_name"],
+        "customerId": row_dict.get("customer_id"),
         "notes": row_dict["notes"],
         "status": row_dict["status"],
         "createdAt": str(row_dict["created_at"]),
@@ -292,20 +297,36 @@ def _insert_appointment(conn, aid, data):
     conn.cursor().execute(
         "INSERT INTO Appointments "
         "(id, service_id, business, service_name, category, price, duration, "
-        "date, time, customer_name, notes, status, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, SYSUTCDATETIME())",
+        "date, time, customer_name, customer_id, notes, status, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, SYSUTCDATETIME())",
         (aid, data.get("serviceId"), data.get("business", ""), data.get("serviceName", ""),
          data.get("category", ""), float(data.get("price", 0)), int(data.get("duration", 30)),
          data.get("date", ""), data.get("time", ""), data.get("customerName", ""),
-         data.get("notes", ""), data.get("status", "pending")),
+         data.get("customerId"), data.get("notes", ""), data.get("status", "pending")),
     )
 
 
-@_with_conn
-def list_appointments(conn):
+def _list_appointments_conn(conn, customer_id=None, business=None):
+    """Scoped appointment listing — callers pass at least one filter."""
+    sql = "SELECT * FROM Appointments"
+    clauses, params = [], []
+    if customer_id is not None:
+        clauses.append("customer_id = ?")
+        params.append(customer_id)
+    if business is not None:
+        clauses.append("business = ?")
+        params.append(business)
+    if clauses:
+        sql += " WHERE " + " AND ".join(clauses)
+    sql += " ORDER BY date, time"
     cursor = conn.cursor()
-    rows = cursor.execute("SELECT * FROM Appointments ORDER BY date, time").fetchall()
+    rows = cursor.execute(sql, params).fetchall()
     return [_appt_to_dict(d) for d in _rows_to_dicts(cursor, rows)]
+
+
+@_with_conn
+def list_appointments(conn, customer_id=None, business=None):
+    return _list_appointments_conn(conn, customer_id=customer_id, business=business)
 
 
 @_with_conn
@@ -400,12 +421,8 @@ def _create_session_token(conn, user_id):
     """Create a new session token and return it."""
     token = secrets.token_urlsafe(32)
     conn.cursor().execute(
-        "DELETE FROM Meta WHERE [key] = ? AND value = ?",
-        ("session", user_id),
-    )
-    conn.cursor().execute(
         "INSERT INTO Meta ([key], value) VALUES (?, ?)",
-        ("session", f"{token}:{user_id}"),
+        (f"session:{token[:16]}", f"{token}:{user_id}"),
     )
     return token
 
@@ -416,7 +433,7 @@ def _user_id_from_token(conn, token):
         return None
     cursor = conn.cursor()
     row = cursor.execute(
-        "SELECT value FROM Meta WHERE [key] = 'session'"
+        "SELECT value FROM Meta WHERE [key] LIKE 'session:%'"
     ).fetchall()
     for r in row:
         val = r[0]
@@ -431,6 +448,23 @@ def _meta(conn, key, default=None):
     cursor = conn.cursor()
     row = cursor.execute("SELECT value FROM Meta WHERE [key] = ?", (key,)).fetchone()
     return row[0] if row else default
+
+
+def _set_user_business_conn(conn, user_id, business):
+    """Link a provider account to a business (by name)."""
+    key = f"business_of:{user_id}"
+    conn.cursor().execute("DELETE FROM Meta WHERE [key] = ?", (key,))
+    conn.cursor().execute("INSERT INTO Meta ([key], value) VALUES (?, ?)", (key, business))
+
+
+@_with_conn
+def set_user_business(conn, user_id, business):
+    _set_user_business_conn(conn, user_id, business)
+
+
+@_with_conn
+def get_user_business(conn, user_id):
+    return _meta(conn, f"business_of:{user_id}")
 
 
 def get_user_by_token(token):
@@ -523,11 +557,11 @@ def change_password(conn, user_id, current_password, new_password):
 def clear_user(conn, token=None):
     if token:
         conn.cursor().execute(
-            "DELETE FROM Meta WHERE [key] = 'session' AND value LIKE ?",
+            "DELETE FROM Meta WHERE [key] LIKE 'session:%' AND value LIKE ?",
             (f"{token}:%",),
         )
     else:
-        conn.cursor().execute("DELETE FROM Meta WHERE [key] = 'session'")
+        conn.cursor().execute("DELETE FROM Meta WHERE [key] LIKE 'session:%'")
 
 
 # ---------------------------------------------------------------------------
@@ -572,6 +606,7 @@ def set_business_session(conn, business, name, email):
             (uid, name or "", email),
         )
     token = _create_session_token(conn, uid)
+    _set_user_business_conn(conn, uid, business)
     row = cursor.execute("SELECT * FROM Users WHERE id = ?", (uid,)).fetchone()
     return _user_to_dict(_row_to_dict(cursor, row)), token
 
@@ -595,17 +630,24 @@ def set_business_name(conn, name):
 # whole-state export / import
 # ---------------------------------------------------------------------------
 @_with_conn
-def get_full_state(conn):
+def get_full_state(conn, viewer=None):
+    """Full app state for a signed-in viewer. Appointments are scoped:
+    customers see their own bookings, providers see their business's."""
     hours = {str(i): None for i in range(7)}
     hours.update(_get_hours_raw(conn))
     cursor = conn.cursor()
     svc_rows = cursor.execute("SELECT * FROM Services ORDER BY created_at").fetchall()
     svc_dicts = _rows_to_dicts(cursor, svc_rows)
-    appt_rows = cursor.execute("SELECT * FROM Appointments ORDER BY date, time").fetchall()
-    appt_dicts = _rows_to_dicts(cursor, appt_rows)
+    if viewer is None:
+        appointments = []
+    elif viewer.get("role") == "provider":
+        biz = _meta(conn, f"business_of:{viewer['id']}")
+        appointments = _list_appointments_conn(conn, business=biz) if biz else []
+    else:
+        appointments = _list_appointments_conn(conn, customer_id=viewer["id"])
     return {
         "services": [_service_to_dict(conn, d) for d in svc_dicts],
-        "appointments": [_appt_to_dict(d) for d in appt_dicts],
+        "appointments": appointments,
         "hours": hours,
         "user": get_user(conn=conn),
         "businessName": _meta(conn, "business_name", "My Business"),
