@@ -199,6 +199,7 @@ function render() {
   if (view === 'browse') body = viewBrowse();
   else if (view === 'service') body = viewService(id);
   else if (view === 'account') body = viewAccount();
+  else if (view === 'business') body = viewBusinessAuth();
   else if (view === 'appointments') body = viewAppointments();
   else if (view === 'provider') body = viewProvider(tab);
   else if (view === 'onboard') body = (state.user && state.user.role === 'provider') ? viewOnboard() : viewAccount();
@@ -213,8 +214,10 @@ function navHtml() {
   const links = ['Browse services'];
   if (u && u.role === 'customer') links.push('My appointments');
   if (u && u.role === 'provider') links.push('Dashboard');
+  if (!u || u.role === 'customer') links.push('For businesses');
   const linkPath = {
     'Browse services': '#/browse', 'My appointments': '#/appointments', 'Dashboard': '#/provider',
+    'For businesses': '#/business',
   };
   return `
   <header class="nav">
@@ -225,7 +228,6 @@ function navHtml() {
       </a>
       <nav class="nav-links">
         ${links.map(l => `<a class="nav-link" href="${linkPath[l]}">${l}</a>`).join('')}
-        <a class="nav-link" href="#/account">For businesses</a>
       </nav>
       <div class="nav-user">
         ${u ? `
@@ -792,7 +794,7 @@ function viewAccount() {
     </div>
     <div class="card" style="margin-top:26px;max-width:640px;margin-left:auto;margin-right:auto;padding:22px;text-align:center">
       <p class="sm" style="font-weight:700;color:var(--stone-700)">Already have a business on HairNet?</p>
-      <button class="btn btn-outline mt-1" onclick="App.businessSignIn()">Sign in to your business</button>
+      <button class="btn btn-outline mt-1" onclick="App.go('#/business/signin')">Sign in to your business</button>
     </div>
   </div>`;
 }
@@ -863,7 +865,7 @@ function businessSignInForm() {
   const opts = names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
   return `
   <div class="page container">
-    <button class="back-link" onclick="App.go('#/account')">${I.arrowLeft} Change how I'm joining</button>
+    <button class="back-link" onclick="App.go('#/business')">${I.arrowLeft} Business sign-in options</button>
     <div class="card form-card" style="padding:34px">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
         <span class="avatar-logo" style="width:46px;height:46px;border-radius:14px;background:var(--terracotta);color:#fff;font-size:18px">${I.layout.replace('18"','22"')}</span>
@@ -892,6 +894,75 @@ function businessSignInForm() {
         </div>
         <button class="btn btn-primary btn-lg btn-block" type="submit">Sign in to dashboard</button>
       </form>
+    </div>
+  </div>`;
+}
+
+/* ---------------- Business auth (create / sign in) ---------------- */
+function viewBusinessAuth() {
+  if (state.user && state.user.role === 'provider') {
+    return `
+    <div class="page container" style="max-width:520px;margin:0 auto">
+      <div class="card form-card" style="padding:34px;text-align:center">
+        <span class="avatar-logo" style="width:56px;height:56px;border-radius:16px;background:var(--terracotta);color:#fff;font-size:20px;margin:0 auto 14px;display:flex;align-items:center;justify-content:center">${I.layout.replace('18"','24"')}</span>
+        <h1 style="font-size:22px;font-weight:800;color:var(--stone-900)">${esc(state.businessName)}</h1>
+        <p class="sm mt-1">You're already signed in to this business.</p>
+        <div class="hero-cta" style="justify-content:center;margin-top:22px">
+          <button class="btn btn-primary" onclick="App.go('#/provider')">Open dashboard ${I.chevRight}</button>
+          <button class="btn btn-ghost" onclick="App.signOut()">Sign out</button>
+        </div>
+      </div>
+    </div>`;
+  }
+  const isCreate = parseHash().id !== 'signin';
+  const heading = isCreate ? 'List your business on HairNet' : 'Sign in to your business';
+  const sub = isCreate
+    ? 'Create a free business account — publish services, set your hours and manage bookings from one dashboard.'
+    : 'Welcome back. Sign in with your email and password to open your dashboard.';
+  const tabs = `
+    <div class="tabs" style="margin-bottom:20px">
+      <button class="tab ${isCreate ? 'active' : ''}" onclick="App.go('#/business')">Create account</button>
+      <button class="tab ${!isCreate ? 'active' : ''}" onclick="App.go('#/business/signin')">Sign in</button>
+    </div>`;
+  return `
+  <div class="page container">
+    <button class="back-link" onclick="App.go('#/account')">${I.arrowLeft} All sign-in options</button>
+    <div class="card form-card" style="padding:34px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
+        <span class="avatar-logo" style="width:46px;height:46px;border-radius:14px;background:var(--terracotta);color:#fff;font-size:18px">${I.layout.replace('18"','22"')}</span>
+        <div><h1 style="font-size:21px;font-weight:800;color:var(--stone-900)">${heading}</h1></div>
+      </div>
+      ${state.user ? `<p class="hint" style="margin-bottom:10px">You're signed in as a customer (${esc(state.user.email)}). Sign out first to use a business account.</p>` : ''}
+      <p class="sm" style="margin-bottom:22px">${sub}</p>
+      ${tabs}
+      <form onsubmit="${isCreate ? 'App.doSignUp(event)' : 'App.doLogin(event)'}">
+        <input type="hidden" name="role" value="provider">
+        ${isCreate ? `
+        <div class="field">
+          <label for="name">Your full name</label>
+          <input id="name" name="name" type="text" placeholder="Alex Morgan" required />
+        </div>
+        <div class="field">
+          <label for="business">Business name</label>
+          <input id="business" name="business" type="text" placeholder="e.g. Riverside Barbershop" required />
+          <div class="hint">Shown to customers on your booking page.</div>
+        </div>` : ''}
+        <div class="field">
+          <label for="email">Work email</label>
+          <input id="email" name="email" type="email" placeholder="you@yourbusiness.com" required />
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" minlength="8" placeholder="At least 8 characters" required />
+        </div>
+        ${isCreate ? `
+        <div class="field">
+          <label for="confirm">Confirm password</label>
+          <input id="confirm" name="confirm" type="password" minlength="8" placeholder="Repeat your password" required />
+        </div>` : ''}
+        <button class="btn btn-primary btn-lg btn-block" type="submit">${isCreate ? 'Create business account' : 'Sign in to dashboard'}</button>
+      </form>
+      <p class="sm center mt-2"><a href="#" onclick="App.businessSignIn();return false;">Sign in with a shared business password instead</a></p>
     </div>
   </div>`;
 }
@@ -1315,6 +1386,7 @@ App.calNext = function () { calMove(1); };
 
 /* account */
 App.chooseRole = function (role) {
+  if (role === 'provider') { App.go('#/business'); return; }
   sessionStorage.setItem('ae_role', role);
   renderAccountBody(role, 'create');
 };
