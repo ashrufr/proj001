@@ -575,6 +575,13 @@ def api_google_session():
 # ---------------------------------------------------------------------------
 # init + run
 # ---------------------------------------------------------------------------
+@app.route("/api/init-db")
+def api_init_db():
+    """Create any missing database tables/columns. Idempotent and safe to call."""
+    db.init_db()
+    return jsonify({"ok": True})
+
+
 if __name__ == "__main__":
     db.init_db()
     print("HairNet backend running at http://localhost:8000")
