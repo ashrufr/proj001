@@ -140,6 +140,21 @@ a { color: inherit; text-decoration: none; }
   border-radius: 999px; padding: 7px 14px;
   font-size: 13px; font-weight: 600;
 }
+.stepper { display: flex; align-items: center; gap: 10px; margin: 0 auto; }
+.stepper .step { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.stepper .step .dot {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700;
+  background: var(--stone-200); color: var(--stone-500);
+}
+.stepper .step.active .dot { background: var(--terracotta); color: #fff; }
+.stepper .step.done .dot { background: var(--sage-deep); color: #fff; }
+.stepper .step small { font-size: 11px; font-weight: 600; color: var(--stone-500); }
+.stepper .step.active small { color: var(--terracotta-hover); }
+.stepper .step.done small { color: var(--sage-deep); }
+.stepper .step-line { flex: 1; height: 2px; background: var(--stone-200); border-radius: 2px; min-width: 24px; }
+
 .hero h1 {
   font-size: clamp(38px, 5vw, 58px); line-height: 1.06; letter-spacing: -0.03em;
   color: var(--stone-900); margin: 20px 0 18px; font-weight: 800;

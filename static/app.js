@@ -203,7 +203,7 @@ function render() {
   else if (view === 'business') body = viewBusinessAuth();
   else if (view === 'appointments') body = viewAppointments();
   else if (view === 'provider') body = viewProvider(tab);
-  else if (view === 'onboard') body = (state.user && state.user.role === 'provider') ? viewOnboard() : viewAccount();
+  else if (view === 'onboard') body = (state.user && state.user.role === 'provider' && !state.businessName) ? viewOnboard() : ((state.user && state.user.role === 'provider') ? viewProvider(tab) : viewAccount());
   else if (view === 'confirmed') body = viewConfirmed();
   else if (view === 'forgot-password') body = viewForgotPassword();
   else if (view === 'reset-password') body = viewResetPassword();
@@ -271,7 +271,7 @@ function footerHtml() {
       </div>
     </div>
     <div class="container" style="margin-top:32px;border-top:1px solid var(--stone-200);padding-top:20px">
-      <p style="margin:0">© ${new Date().getFullYear()} ARX Intelligence. All rights reserved. <span class="version">v1.003</span></p>
+      <p style="margin:0">© ${new Date().getFullYear()} ARX Intelligence. All rights reserved. <span class="version">v1.004</span></p>
     </div>
   </footer>`;
 }
@@ -790,17 +790,24 @@ function viewConfirmed() {
   </div>`;
 }
 
-/* ---------------- Provider onboarding (business setup / first service) ---------------- */
+/* ---------------- Provider onboarding ---------------
+   Phase 2 of 3: business details (name + owner).
+   Phase 1 = email/oauth sign-in; Phase 3 = products & prefs in the dashboard. */
 function viewOnboard() {
   const u = state.user || {};
-  if (!state.businessName) {
-    // Brand-new Google/OAuth provider: capture name + business name first.
-    return `
+  return `
   <div class="page container" style="max-width:620px">
+    <div class="stepper" style="margin-bottom:26px;max-width:460px">
+      <div class="step done"><span class="dot">1</span><small>Account</small></div>
+      <div class="step-line"></div>
+      <div class="step active"><span class="dot">2</span><small>Business details</small></div>
+      <div class="step-line"></div>
+      <div class="step"><span class="dot">3</span><small>Products & setup</small></div>
+    </div>
     <div class="page-head center" style="text-align:center;margin-bottom:26px">
       <span class="badge-pill">${I.layout.replace('18"','14"')} Welcome, ${esc(u.name || '')}!</span>
       <h1>Set up your business</h1>
-      <p>Tell us the name of your business and how to address you. You can add services right after.</p>
+      <p>Tell us the name of your business and how to address you.</p>
     </div>
     <div class="card" style="padding:30px">
       <form onsubmit="App.onboardSetupBusiness(event)">
@@ -813,50 +820,7 @@ function viewOnboard() {
           <input id="obz-business" name="business" type="text" placeholder="e.g. Riverside Barbershop" required />
           <div class="hint">Shown to customers on your booking page.</div>
         </div>
-        <button class="btn btn-primary btn-lg btn-block" type="submit">Continue ${I.arrowRight}</button>
-        <button type="button" class="btn btn-ghost btn-block mt-1" onclick="App.go('#/provider')">Skip for now</button>
-      </form>
-    </div>
-  </div>`;
-  }
-  const catOptions = CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('');
-  return `
-  <div class="page container" style="max-width:620px">
-    <div class="page-head center" style="text-align:center;margin-bottom:26px">
-      <span class="badge-pill">${I.layout.replace('18"','14"')} Welcome, ${esc(u.name || '')}!</span>
-      <h1>Let's add your first service</h1>
-      <p>Customers can only book services you publish. Set up your first one now — it takes seconds.</p>
-    </div>
-    <div class="card" style="padding:30px">
-      <div class="prov-row" style="margin-top:0;margin-bottom:22px">
-        <span class="avatar-logo" style="background:var(--terracotta)">${I.layout.replace('18"','20"')}</span>
-        <div><b>${esc(state.businessName)}</b><span>Your business account</span></div>
-      </div>
-      <form onsubmit="App.onboardSaveService(event)">
-        <div class="field">
-          <label for="ob-name">Service name</label>
-          <input id="ob-name" name="name" type="text" placeholder="e.g. Signature Haircut" required />
-        </div>
-        <div class="field">
-          <label for="ob-desc">Description</label>
-          <textarea id="ob-desc" name="desc" placeholder="What makes this service special?" required></textarea>
-        </div>
-        <div class="flex gap-2" style="gap:12px">
-          <div class="field" style="flex:1">
-            <label for="ob-dur">Duration (min)</label>
-            <input id="ob-dur" name="duration" type="number" min="15" max="480" step="15" value="60" required />
-          </div>
-          <div class="field" style="flex:1">
-            <label for="ob-price">Price (R)</label>
-            <input id="ob-price" name="price" type="number" min="0" step="0.01" value="50" required />
-          </div>
-        </div>
-        <div class="field">
-          <label for="ob-cat">Category</label>
-          <select id="ob-cat" name="category">${catOptions}</select>
-        </div>
-        <button class="btn btn-primary btn-lg btn-block" type="submit">Create service ${I.arrowRight}</button>
-        <button type="button" class="btn btn-ghost btn-block mt-1" onclick="App.go('#/provider')">Skip for now</button>
+        <button class="btn btn-primary btn-lg btn-block" type="submit">Continue to dashboard ${I.arrowRight}</button>
       </form>
     </div>
   </div>`;
@@ -1925,30 +1889,13 @@ App.onboardSetupBusiness = async function (e) {
     state.businessName = res.business || business;
     state.user = Object.assign({}, state.user, { name });
     persist();
-    App.go('#/onboard');
+    toast('Business set up. Now add your products and preferences.');
+    App.go('#/provider');
   } catch (err) {
     toast('Could not set up business: ' + err.message);
   }
 };
 
-App.onboardSaveService = function (e) {
-  e.preventDefault();
-  const fd = new FormData(e.target);
-  const svc = {
-    id: uid(),
-    business: state.businessName,
-    name: fd.get('name').trim(),
-    desc: fd.get('desc').trim(),
-    duration: Number(fd.get('duration')),
-    price: Number(fd.get('price')),
-    category: fd.get('category'),
-  };
-  state.services.unshift(svc);
-  persist();
-  syncToServer(apiClient.createService(svc));
-  toast('Service created — customers can book it now.');
-  App.go('#/provider/services');
-};
 App.saveService = function (e) {
   e.preventDefault();
   const fd = new FormData(e.target);
