@@ -601,6 +601,8 @@ function viewBrowseCategories() {
     </button>`;
   }).join('');
 
+  const allCards = services.map(s => serviceCard(s)).join('');
+
   return `
   <div class="page container" style="max-width:720px">
     <div class="page-head" style="text-align:center">
@@ -609,6 +611,14 @@ function viewBrowseCategories() {
     </div>
     <div class="categories-strip" style="flex-direction:column;gap:12px;margin-top:8px">
       ${cats}
+    </div>
+    <div class="section" style="margin-top:32px">
+      <div class="section-head" style="text-align:left">
+        <span class="eyebrow">All services</span>
+        <h2>Book a service</h2>
+        <p>Every service available right now.</p>
+      </div>
+      ${allCards ? `<div class="grid-cards">${allCards}</div>` : `<div class="empty-state"><div class="big-ico">${I.search}</div><h3>No services yet</h3><p>Bookings will appear here as soon as providers add services.</p></div>`}
     </div>
   </div>`;
 }
@@ -677,7 +687,8 @@ function viewBrowseServices(cat, biz, q) {
   const bs = bizStyle(biz);
   const services = state.services || [];
   // Browsing is business-first now: show everything this business offers.
-  let list = services.filter(s => s.business === biz);
+  const bizNorm = (biz || '').trim().toLowerCase();
+  let list = services.filter(s => (s.business || '').trim().toLowerCase() === bizNorm);
   if (q) list = list.filter(s => (s.name + s.desc).toLowerCase().includes(q));
 
   const empty = q
@@ -2079,7 +2090,7 @@ App.onboardSetupBusiness = async function (e) {
   }
 };
 
-App.saveService = function (e) {
+App.saveService = async function (e) {
   e.preventDefault();
   const fd = new FormData(e.target);
   const id = fd.get('id');
@@ -2093,13 +2104,21 @@ App.saveService = function (e) {
     Object.assign(s, data);
     toast('Service updated.');
     syncToServer(apiClient.updateService(id, data));
+    persist(); render();
   } else {
     const svc = { id: uid(), business: state.businessName, ...data };
-    state.services.unshift(svc);
-    toast('Service added — it is live on your booking page.');
-    syncToServer(apiClient.createService(svc));
+    try {
+      const created = await apiClient.createService(svc);
+      state.services = [created, ...state.services.filter(x => x.id !== created.id)];
+      toast('Service added — it is live on your booking page.');
+    } catch (err) {
+      toast('Could not add service: ' + err.message);
+      App.closeModal();
+      return;
+    }
+    persist(); render();
   }
-  persist(); App.closeModal(); render();
+  App.closeModal();
 };
 App.deleteService = function (id) {
   const s = byId(id);
