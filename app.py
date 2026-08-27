@@ -343,16 +343,61 @@ def api_reset_password():
     return jsonify({"ok": True})
 
 
+@app.route("/api/auth/business/forgot-password", methods=["POST"])
+def api_business_forgot_password():
+    data = request.get_json()
+    business = (data.get("business") or "").strip()
+    if not business:
+        return jsonify({"error": "business name is required"}), 400
+    token = db.create_business_reset_token(business)
+    if token is None:
+        # Don't reveal whether the business exists
+        return jsonify({"ok": True})
+    return jsonify({"ok": True, "token": token})
+
+
+@app.route("/api/auth/business/reset-password", methods=["POST"])
+def api_business_reset_password():
+    data = request.get_json()
+    token = data.get("token", "")
+    new_password = data.get("newPassword", "")
+    try:
+        db.reset_business_password(token, new_password)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify({"ok": True})
+
+
+@app.route("/api/auth/google/business-session", methods=["GET"])
+def api_google_business_session():
+    """Return the current provider user + their business after OAuth."""
+    user = _current_user()
+    if not user:
+        return jsonify({"error": "not signed in"}), 401
+    business = db.get_user_business_name(user["id"])
+    return jsonify({"ok": True, "user": user, "businessName": business})
+
+
 @app.route("/api/auth/google/authorize")
 def api_google_authorize():
-    """Begin Google OAuth: generate PKCE verifier, state, and redirect URL."""
+    """Begin Google OAuth: generate PKCE verifier, state, and redirect URL.
+
+    Query param `handler` selects the post-OAuth behaviour:
+      - "customer" (default): sign in/up as a customer
+      - "provider": sign in/up as a provider (business owner)
+    """
     if not GOOGLE_CLIENT_ID:
         return jsonify({"error": "Google OAuth is not configured"}), 503
+
+    handler = request.args.get("handler", "customer")
+    if handler not in ("customer", "provider"):
+        handler = "customer"
 
     # PKCE
     code_verifier = _pkce_code_verifier()
     code_challenge = _pkce_code_challenge(code_verifier)
     session["google_oauth_verifier"] = code_verifier
+    session["google_oauth_handler"] = handler
 
     # CSRF state
     state = secrets.token_urlsafe(32)
@@ -384,16 +429,19 @@ def api_google_callback():
     if not state or state != expected_state:
         return redirect("/#/account?error=oauth_state_mismatch", code=302)
 
+    handler = session.pop("google_oauth_handler", "customer")
+    target = "#/oauth-complete"
+
     # --- Error from Google ---
     error = request.args.get("error")
     if error:
-        return redirect(f"/#/account?error={error}", code=302)
+        return redirect(f"{target}?error={error}", code=302)
 
     # --- Exchange authorization code for tokens (with PKCE verifier) ---
     code = request.args.get("code", "")
     code_verifier = session.pop("google_oauth_verifier", None)
     if not code or not code_verifier:
-        return redirect("/#/account?error=oauth_missing_code", code=302)
+        return redirect(f"{target}?error=oauth_missing_code", code=302)
 
     redirect_uri = _google_redirect_uri()
     token_resp = http_requests.post(GOOGLE_TOKEN_ENDPOINT, data={
@@ -406,12 +454,12 @@ def api_google_callback():
     }, timeout=10)
 
     if token_resp.status_code != 200:
-        return redirect("/#/account?error=oauth_token_exchange_failed", code=302)
+        return redirect(f"{target}?error=oauth_token_exchange_failed", code=302)
 
     token_data = token_resp.json()
     access_token = token_data.get("access_token")
     if not access_token:
-        return redirect("/#/account?error=oauth_no_access_token", code=302)
+        return redirect(f"{target}?error=oauth_no_access_token", code=302)
 
     # --- Fetch user info from Google ---
     userinfo_resp = http_requests.get(GOOGLE_USERINFO_ENDPOINT, headers={
@@ -419,7 +467,7 @@ def api_google_callback():
     }, timeout=10)
 
     if userinfo_resp.status_code != 200:
-        return redirect("/#/account?error=oauth_userinfo_failed", code=302)
+        return redirect(f"{target}?error=oauth_userinfo_failed", code=302)
 
     userinfo = userinfo_resp.json()
     google_id = userinfo.get("id")
@@ -427,13 +475,16 @@ def api_google_callback():
     name = userinfo.get("name", "")
 
     if not google_id or not email:
-        return redirect("/#/account?error=oauth_incomplete_profile", code=302)
+        return redirect(f"{target}?error=oauth_incomplete_profile", code=302)
 
     # --- Create or find user, start session ---
-    user, token = db.create_user_from_google(google_id, email, name)
+    if handler == "provider":
+        user, token = db.create_provider_from_google(google_id, email, name)
+    else:
+        user, token = db.create_user_from_google(google_id, email, name)
     _set_user(user, token)
 
-    return redirect("/#/oauth-complete", code=302)
+    return redirect(f"{target}", code=302)
 
 
 @app.route("/api/auth/google/session", methods=["GET"])
@@ -442,7 +493,11 @@ def api_google_session():
     user = _current_user()
     if not user:
         return jsonify({"error": "not signed in"}), 401
-    return jsonify({"ok": True, "user": user})
+    payload = {"ok": True, "user": user}
+    if user.get("role") == "provider":
+        business = db.get_user_business_name(user["id"])
+        payload["businessName"] = business
+    return jsonify(payload)
 
 
 # ---------------------------------------------------------------------------

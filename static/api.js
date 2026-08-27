@@ -42,8 +42,11 @@ const API = (() => {
     changePassword: (d) => req('POST', '/api/auth/change-password', d),
     forgotPassword: (email) => req('POST', '/api/auth/forgot-password', { email }),
     resetPassword: (d) => req('POST', '/api/auth/reset-password', d),
-    googleAuthorize: () => req('GET', '/api/auth/google/authorize'),
+    googleAuthorize: (handler) => req('GET', '/api/auth/google/authorize' + (handler ? '?handler=' + handler : '')),
     googleSession: () => req('GET', '/api/auth/google/session'),
+    googleBusinessSession: () => req('GET', '/api/auth/google/business-session'),
+    businessForgotPassword: (business) => req('POST', '/api/auth/business/forgot-password', { business }),
+    businessResetPassword: (d) => req('POST', '/api/auth/business/reset-password', d),
   };
 })();
 

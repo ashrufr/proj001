@@ -709,6 +709,56 @@ def create_user_from_google(conn, google_id, email, name):
     return _user_to_dict(_row_to_dict(cursor, row)), token
 
 
+@_with_conn
+def create_provider_from_google(conn, google_id, email, name):
+    """Create or find a provider user from Google OAuth, linked to no business yet.
+
+    Returns (user_dict, token). Role is set to 'provider'. If the Google account
+    is already tied to a business, the caller reads the business association.
+    """
+    cursor = conn.cursor()
+    row = cursor.execute("SELECT * FROM Users WHERE google_id = ?", (google_id,)).fetchone()
+    if row:
+        d = _row_to_dict(cursor, row)
+        # Ensure provider role
+        cursor.execute("UPDATE Users SET role = 'provider' WHERE id = ?", (d["id"],))
+        token = _create_session_token(conn, d["id"])
+        d["role"] = "provider"
+        return _user_to_dict({**d, "role": "provider"}), token
+
+    row = cursor.execute("SELECT * FROM Users WHERE email = ?", (email,)).fetchone()
+    if row:
+        d = _row_to_dict(cursor, row)
+        cursor.execute(
+            "UPDATE Users SET role = 'provider', google_id = ? WHERE id = ?",
+            (google_id, d["id"]),
+        )
+        token = _create_session_token(conn, d["id"])
+        return _user_to_dict({**d, "role": "provider"}), token
+
+    uid = _new_id("u")
+    cursor.execute(
+        "INSERT INTO Users (id, name, email, role, password_hash, google_id) "
+        "VALUES (?, ?, ?, 'provider', '', ?)",
+        (uid, name or email.split("@")[0], email, google_id),
+    )
+    token = _create_session_token(conn, uid)
+    row = cursor.execute("SELECT * FROM Users WHERE id = ?", (uid,)).fetchone()
+    return _user_to_dict(_row_to_dict(cursor, row)), token
+
+
+@_with_conn
+def get_user_business_name(conn, user_id):
+    """Return the business name a provider user is associated with, or blank."""
+    return _meta(conn, f"business_of:{user_id}", "")
+
+
+@_with_conn
+def set_user_business_name(conn, user_id, business):
+    """Associate (or re-associate) a provider user with a business by name."""
+    _set_user_business_conn(conn, user_id, business)
+
+
 # ---------------------------------------------------------------------------
 # business login passwords
 # ---------------------------------------------------------------------------
@@ -754,6 +804,67 @@ def set_business_session(conn, business, name, email):
     _set_user_business_conn(conn, uid, business)
     row = cursor.execute("SELECT * FROM Users WHERE id = ?", (uid,)).fetchone()
     return _user_to_dict(_row_to_dict(cursor, row)), token
+
+
+# ---------------------------------------------------------------------------
+# business password reset (reuses Meta reset tokens, tracked per business)
+# ---------------------------------------------------------------------------
+@_with_conn
+def create_business_reset_token(conn, business):
+    """Create a reset token for a business password. Returns token or None."""
+    business = (business or "").strip()
+    cursor = conn.cursor()
+    row = cursor.execute("SELECT name FROM Businesses WHERE name = ?", (business,)).fetchone()
+    if not row:
+        return None
+    # Remove any existing reset tokens for this business
+    cursor.execute(
+        "DELETE FROM Meta WHERE [key] LIKE 'bizreset:%' AND value LIKE ?",
+        (f"%:{business}",),
+    )
+    token = secrets.token_urlsafe(32)
+    cursor.execute(
+        "INSERT INTO Meta ([key], value) VALUES (?, ?)",
+        (f"bizreset:{token[:16]}", f"{token}:{business}"),
+    )
+    return token
+
+
+@_with_conn
+def verify_business_reset_token(conn, token):
+    """Return the business name for a valid reset token, or None."""
+    if not token:
+        return None
+    cursor = conn.cursor()
+    rows = cursor.execute("SELECT value FROM Meta WHERE [key] LIKE 'bizreset:%'").fetchall()
+    for r in rows:
+        val = r[0]
+        if ":" in val:
+            t, business = val.split(":", 1)
+            if t == token:
+                return business
+    return None
+
+
+@_with_conn
+def reset_business_password(conn, token, new_password):
+    """Reset a business password using a valid reset token."""
+    if len(str(new_password or "")) < 8:
+        raise ValueError("new password must be at least 8 characters")
+    business = verify_business_reset_token(conn, token)
+    if not business:
+        raise ValueError("invalid or expired reset token")
+    cursor = conn.cursor()
+    bid = _get_or_create_business(conn, business)
+    cursor.execute(
+        "UPDATE Businesses SET password_hash = ? WHERE id = ?",
+        (hash_password(new_password), bid),
+    )
+    # Clean up the used token
+    cursor.execute(
+        "DELETE FROM Meta WHERE [key] LIKE 'bizreset:%' AND value LIKE ?",
+        (f"%:{business}",),
+    )
 
 
 # ---------------------------------------------------------------------------
