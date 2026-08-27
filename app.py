@@ -143,7 +143,7 @@ def api_create_service():
         return jsonify({"error": "only signed-in business owners can create services"}), 403
     data = request.get_json() or {}
     data["business"] = business
-    return jsonify(db.create_service(data)), 201
+    return jsonify(db.create_service(data, owner_id=user["id"])), 201
 
 
 @app.route("/api/services/<service_id>", methods=["GET"])
@@ -162,7 +162,7 @@ def api_update_service(service_id):
         return jsonify({"error": "not found"}), 404
     data = request.get_json() or {}
     data["business"] = business
-    return jsonify(db.update_service(service_id, data))
+    return jsonify(db.update_service(service_id, data, owner_id=user["id"]))
 
 
 @app.route("/api/services/<service_id>", methods=["DELETE"])
@@ -275,7 +275,7 @@ def api_save_business_name():
     user, business = _require_provider()
     if not user:
         return jsonify({"error": "only signed-in business owners can update the business"}), 403
-    db.set_business_name(business)
+    db.set_user_business(user["id"], business)
     return jsonify({"ok": True})
 
 
@@ -317,10 +317,11 @@ def api_signup():
         return jsonify({"error": str(exc)}), 409
     _set_user(user, token)
     if data.get("role") == "provider" and data.get("business"):
-        db.set_business_name(data["business"])
         db.set_user_business(user["id"], data["business"])
         try:
-            db.set_business_password(data["business"], data.get("password", ""))
+            db.set_business_password(
+                data["business"], data.get("password", ""), owner_id=user["id"]
+            )
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 400
     return jsonify({"ok": True, "user": user}), 201
@@ -346,7 +347,6 @@ def api_business_login():
     user, token = db.set_business_session(
         business, data.get("name", ""), data.get("email", "")
     )
-    db.set_business_name(business)
     _set_user(user, token)
     return jsonify({"ok": True, "user": user, "business": business})
 

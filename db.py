@@ -104,8 +104,12 @@ CREATE TABLE Businesses (
   id NVARCHAR(20) PRIMARY KEY,
   name NVARCHAR(200) NOT NULL UNIQUE,
   password_hash NVARCHAR(400) NOT NULL DEFAULT '',
+  owner_id NVARCHAR(20) NULL,
   created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
 );
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Businesses') AND name = 'owner_id')
+ALTER TABLE Businesses ADD owner_id NVARCHAR(20) NULL;
 
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Users')
 CREATE TABLE Users (
@@ -186,20 +190,46 @@ def init_db():
 # ---------------------------------------------------------------------------
 # businesses
 # ---------------------------------------------------------------------------
-def _get_or_create_business(conn, name):
+def _get_or_create_business(conn, name, owner_id=None):
     cursor = conn.cursor()
     row = cursor.execute("SELECT id FROM Businesses WHERE name = ?", (name,)).fetchone()
     if row:
         return row[0]
     bid = _new_id("b")
-    cursor.execute("INSERT INTO Businesses (id, name) VALUES (?, ?)", (bid, name))
+    cursor.execute(
+        "INSERT INTO Businesses (id, name, owner_id) VALUES (?, ?, ?)",
+        (bid, name, owner_id),
+    )
     return bid
+
+
+def _claim_business_owner(conn, business, user_id):
+    """Record user_id as the owner of a business that has no owner yet."""
+    if not user_id:
+        return
+    bid = _get_or_create_business(conn, business, owner_id=user_id)
+    conn.cursor().execute(
+        "UPDATE Businesses SET owner_id = ? WHERE id = ? AND owner_id IS NULL",
+        (user_id, bid),
+    )
 
 
 def _business_name(conn, business_id):
     cursor = conn.cursor()
     row = cursor.execute("SELECT name FROM Businesses WHERE id = ?", (business_id,)).fetchone()
     return row[0] if row else ""
+
+
+@_with_conn
+def get_business_owner(conn, business):
+    """Return the id of the user account that created the business, or None."""
+    if not business:
+        return None
+    cursor = conn.cursor()
+    row = cursor.execute(
+        "SELECT owner_id FROM Businesses WHERE name = ?", (business,)
+    ).fetchone()
+    return row[0] if row else None
 
 
 # ---------------------------------------------------------------------------
@@ -235,9 +265,9 @@ def get_service(conn, service_id):
 
 
 @_with_conn
-def create_service(conn, data):
+def create_service(conn, data, owner_id=None):
     sid = data.get("id") or _new_id("s")
-    business_id = _get_or_create_business(conn, data.get("business") or "My Business")
+    business_id = _get_or_create_business(conn, data.get("business") or "My Business", owner_id=owner_id)
     cursor = conn.cursor()
     cursor.execute(
         "INSERT INTO Services (id, business_id, name, description, duration, price, category) "
@@ -251,7 +281,7 @@ def create_service(conn, data):
 
 
 @_with_conn
-def update_service(conn, service_id, data):
+def update_service(conn, service_id, data, owner_id=None):
     cursor = conn.cursor()
     row = cursor.execute("SELECT * FROM Services WHERE id = ?", (service_id,)).fetchone()
     if not row:
@@ -259,7 +289,7 @@ def update_service(conn, service_id, data):
     existing = _row_to_dict(cursor, row)
     business_id = existing["business_id"]
     if data.get("business"):
-        business_id = _get_or_create_business(conn, data["business"])
+        business_id = _get_or_create_business(conn, data["business"], owner_id=owner_id)
     cursor.execute(
         "UPDATE Services SET business_id = ?, name = ?, description = ?, duration = ?, price = ?, category = ? "
         "WHERE id = ?",
@@ -659,6 +689,9 @@ def delete_user(conn, user_id):
                 cursor.execute("DELETE FROM Businesses WHERE id = ?", (business_id,))
                 cursor.execute("DELETE FROM Appointments WHERE business = ?", (business,))
 
+    # any business this account created that still exists loses its owner link
+    cursor.execute("UPDATE Businesses SET owner_id = NULL WHERE owner_id = ?", (user_id,))
+
     cursor.execute("DELETE FROM Users WHERE id = ?", (user_id,))
 
 
@@ -851,7 +884,7 @@ def set_user_business_name(conn, user_id, business):
 def link_provider_to_business(conn, user_id, name, business):
     """Update a provider's display name and link them to a business (creating it if needed)."""
     cursor = conn.cursor()
-    _get_or_create_business(conn, business)
+    _get_or_create_business(conn, business, owner_id=user_id)
     _set_user_business_conn(conn, user_id, business)
     if name:
         cursor.execute("UPDATE Users SET name = ? WHERE id = ?", (name, user_id))
@@ -862,10 +895,10 @@ def link_provider_to_business(conn, user_id, name, business):
 # business login passwords
 # ---------------------------------------------------------------------------
 @_with_conn
-def set_business_password(conn, name, password):
+def set_business_password(conn, name, password, owner_id=None):
     if len(str(password or "")) < 8:
         raise ValueError("password must be at least 8 characters")
-    business_id = _get_or_create_business(conn, name)
+    business_id = _get_or_create_business(conn, name, owner_id=owner_id)
     conn.cursor().execute(
         "UPDATE Businesses SET password_hash = ? WHERE id = ?",
         (hash_password(password), business_id),
@@ -901,6 +934,7 @@ def set_business_session(conn, business, name, email):
         )
     token = _create_session_token(conn, uid)
     _set_user_business_conn(conn, uid, business)
+    _claim_business_owner(conn, business, uid)
     row = cursor.execute("SELECT * FROM Users WHERE id = ?", (uid,)).fetchone()
     return _user_to_dict(_row_to_dict(cursor, row)), token
 
@@ -993,11 +1027,14 @@ def get_full_state(conn, viewer=None):
     cursor = conn.cursor()
     svc_rows = cursor.execute("SELECT * FROM Services ORDER BY created_at").fetchall()
     svc_dicts = _rows_to_dicts(cursor, svc_rows)
+    business_name = _meta(conn, "business_name", "My Business")
     if viewer is None:
         appointments = []
     elif viewer.get("role") == "provider":
         biz = _meta(conn, f"business_of:{viewer['id']}")
         appointments = _list_appointments_conn(conn, business=biz) if biz else []
+        if biz:
+            business_name = biz
     else:
         appointments = _list_appointments_conn(conn, customer_id=viewer["id"])
     return {
@@ -1005,7 +1042,7 @@ def get_full_state(conn, viewer=None):
         "appointments": appointments,
         "hours": hours,
         "user": get_user(conn=conn),
-        "businessName": _meta(conn, "business_name", "My Business"),
+        "businessName": business_name,
     }
 
 
