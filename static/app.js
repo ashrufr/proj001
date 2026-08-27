@@ -81,7 +81,7 @@ function emptyState() {
 let state = (function () {
   try {
     const raw = localStorage.getItem(STORE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) return Object.assign(emptyState(), JSON.parse(raw));
   } catch (e) { /* ignore */ }
   return emptyState();
 })();
