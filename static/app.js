@@ -997,8 +997,8 @@ function signInForm(role, mode) {
         : 'Welcome back — sign in to manage your bookings.');
   const tabs = role === 'customer' ? `
     <div class="tabs" style="margin-bottom:20px">
-      <button class="tab ${isCreate ? 'active' : ''}" onclick="App.setAuthMode('customer','create')">Create account</button>
       <button class="tab ${!isCreate ? 'active' : ''}" onclick="App.setAuthMode('customer','login')">Sign in</button>
+      <button class="tab ${isCreate ? 'active' : ''}" onclick="App.setAuthMode('customer','create')">Create account</button>
     </div>` : '';
   return `
   <div class="page container">
@@ -1127,8 +1127,8 @@ function viewBusinessAuth() {
     : 'Welcome back. Sign in with your email and password to open your dashboard.';
   const tabs = `
     <div class="tabs" style="margin-bottom:20px">
-      <button class="tab ${isCreate ? 'active' : ''}" onclick="App.go('#/business')">Create account</button>
       <button class="tab ${!isCreate ? 'active' : ''}" onclick="App.go('#/business/signin')">Sign in</button>
+      <button class="tab ${isCreate ? 'active' : ''}" onclick="App.go('#/business')">Create account</button>
     </div>`;
   const googleDivider = `
       <button class="btn btn-outline btn-lg btn-block" type="button" onclick="App.googleSignIn('provider')" style="gap:10px;margin-bottom:18px">
