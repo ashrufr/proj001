@@ -270,6 +270,32 @@ def api_change_password():
     return jsonify({"ok": True})
 
 
+@app.route("/api/auth/forgot-password", methods=["POST"])
+def api_forgot_password():
+    data = request.get_json()
+    email = (data.get("email") or "").strip()
+    if not email:
+        return jsonify({"error": "email is required"}), 400
+    token = db.create_reset_token(email)
+    if token is None:
+        # Don't reveal whether the email exists
+        return jsonify({"ok": True})
+    # In production, send this token via email. For now, return it directly.
+    return jsonify({"ok": True, "token": token})
+
+
+@app.route("/api/auth/reset-password", methods=["POST"])
+def api_reset_password():
+    data = request.get_json()
+    token = data.get("token", "")
+    new_password = data.get("newPassword", "")
+    try:
+        db.reset_password(token, new_password)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify({"ok": True})
+
+
 # ---------------------------------------------------------------------------
 # init + run
 # ---------------------------------------------------------------------------

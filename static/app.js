@@ -197,6 +197,7 @@ function render() {
   const root = document.getElementById('app');
   let body = '';
   if (view === 'browse') body = viewBrowse();
+  else if (view === 'pricing') body = viewPricing();
   else if (view === 'service') body = viewService(id);
   else if (view === 'account') body = viewAccount();
   else if (view === 'business') body = viewBusinessAuth();
@@ -204,6 +205,8 @@ function render() {
   else if (view === 'provider') body = viewProvider(tab);
   else if (view === 'onboard') body = (state.user && state.user.role === 'provider') ? viewOnboard() : viewAccount();
   else if (view === 'confirmed') body = viewConfirmed();
+  else if (view === 'forgot-password') body = viewForgotPassword();
+  else if (view === 'reset-password') body = viewResetPassword();
   else body = viewHome();
   root.innerHTML = navHtml() + '<main>' + body + '</main>' + footerHtml();
   afterRender(view, id, tab);
@@ -211,13 +214,13 @@ function render() {
 
 function navHtml() {
   const u = state.user;
-  const links = ['Browse services'];
+  const links = ['Browse services', 'Pricing'];
   if (u && u.role === 'customer') links.push('My appointments');
   if (u && u.role === 'provider') links.push('Dashboard');
   if (!u || u.role === 'customer') links.push('For businesses');
   const linkPath = {
-    'Browse services': '#/browse', 'My appointments': '#/appointments', 'Dashboard': '#/provider',
-    'For businesses': '#/business',
+    'Browse services': '#/browse', 'Pricing': '#/pricing', 'My appointments': '#/appointments',
+    'Dashboard': '#/provider', 'For businesses': '#/business',
   };
   return `
   <header class="nav">
@@ -419,6 +422,56 @@ function viewHome() {
       </div>
     </div>
   </section>`;
+}
+
+/* ---------------- Pricing ---------------- */
+function viewPricing() {
+  return `
+  <div class="page container" style="max-width:920px">
+    <div class="page-head" style="text-align:center">
+      <h1>Pricing</h1>
+      <p>Simple, transparent plans. Start for free, upgrade when you're ready.</p>
+    </div>
+    <div class="pricing-grid">
+      <div class="pricing-card">
+        <div class="pricing-name">Free</div>
+        <div class="pricing-price">R0<span>/month</span></div>
+        <div class="pricing-limit">Up to 50 appointments per month</div>
+        <ul class="pricing-features">
+          <li>${I.check} Basic booking page</li>
+          <li>${I.check} Service listings</li>
+          <li>${I.check} Schedule management</li>
+          <li>${I.check} Customer notifications</li>
+        </ul>
+        <button class="btn btn-outline btn-block" onclick="App.go('#/account')">Get started</button>
+      </div>
+      <div class="pricing-card pricing-card-featured">
+        <div class="pricing-badge">Popular</div>
+        <div class="pricing-name">Starter</div>
+        <div class="pricing-price">R100<span>/month</span></div>
+        <div class="pricing-limit">Up to 200 appointments per month</div>
+        <ul class="pricing-features">
+          <li>${I.check} Everything in Free</li>
+          <li>${I.check} Priority support</li>
+          <li>${I.check} Advanced analytics</li>
+          <li>${I.check} Custom branding</li>
+        </ul>
+        <button class="btn btn-primary btn-block" onclick="App.go('#/account')">Start free trial</button>
+      </div>
+      <div class="pricing-card">
+        <div class="pricing-name">Pro</div>
+        <div class="pricing-price">R300<span>/month</span></div>
+        <div class="pricing-limit">Unlimited appointments per month</div>
+        <ul class="pricing-features">
+          <li>${I.check} Everything in Starter</li>
+          <li>${I.check} Unlimited bookings</li>
+          <li>${I.check} Multi-staff support</li>
+          <li>${I.check} API access</li>
+        </ul>
+        <button class="btn btn-outline btn-block" onclick="App.go('#/account')">Start free trial</button>
+      </div>
+    </div>
+  </div>`;
 }
 
 function mockupCard() {
@@ -782,6 +835,57 @@ function viewOnboard() {
   </div>`;
 }
 
+/* ---------------- Forgot / Reset Password ---------------- */
+function viewForgotPassword() {
+  return `
+  <div class="page container">
+    <div class="card form-card" style="padding:34px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
+        <span class="avatar-logo" style="width:46px;height:46px;border-radius:14px;background:var(--sage);color:#fff;font-size:18px">${I.shield.replace('18"','22"')}</span>
+        <div><h1 style="font-size:21px;font-weight:800;color:var(--stone-900)">Forgot password?</h1></div>
+      </div>
+      <p class="sm" style="margin-bottom:22px">Enter your email address and we'll send you a reset link.</p>
+      <form onsubmit="App.doForgotPassword(event)">
+        <div class="field">
+          <label for="fp-email">Email</label>
+          <input id="fp-email" name="email" type="email" placeholder="you@example.com" required />
+        </div>
+        <button class="btn btn-primary btn-lg btn-block" type="submit">Send reset link</button>
+      </form>
+      <p class="sm center mt-2"><a href="#" onclick="App.go('#/account');return false;">Back to sign in</a></p>
+    </div>
+  </div>`;
+}
+
+function viewResetPassword() {
+  return `
+  <div class="page container">
+    <div class="card form-card" style="padding:34px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
+        <span class="avatar-logo" style="width:46px;height:46px;border-radius:14px;background:var(--sage);color:#fff;font-size:18px">${I.shield.replace('18"','22"')}</span>
+        <div><h1 style="font-size:21px;font-weight:800;color:var(--stone-900)">Reset password</h1></div>
+      </div>
+      <p class="sm" style="margin-bottom:22px">Paste your reset token and choose a new password.</p>
+      <form onsubmit="App.doResetPassword(event)">
+        <div class="field">
+          <label for="rp-token">Reset token</label>
+          <input id="rp-token" name="token" type="text" placeholder="Paste your reset token" required />
+        </div>
+        <div class="field">
+          <label for="rp-new">New password</label>
+          <input id="rp-new" name="newPassword" type="password" minlength="8" placeholder="At least 8 characters" required />
+        </div>
+        <div class="field">
+          <label for="rp-confirm">Confirm password</label>
+          <input id="rp-confirm" name="confirm" type="password" minlength="8" placeholder="Repeat your password" required />
+        </div>
+        <button class="btn btn-primary btn-lg btn-block" type="submit">Reset password</button>
+      </form>
+      <p class="sm center mt-2"><a href="#" onclick="App.go('#/account');return false;">Back to sign in</a></p>
+    </div>
+  </div>`;
+}
+
 /* ---------------- Account ---------------- */
 function viewAccount() {
   if (state.user) {
@@ -893,6 +997,7 @@ function signInForm(role, mode) {
         <div class="field">
           <label for="password">Password</label>
           <input id="password" name="password" type="password" minlength="8" placeholder="At least 8 characters" required />
+          ${!isCreate ? '<div class="hint"><a href="#" onclick="App.go(\'#/forgot-password\');return false;">Forgot password?</a></div>' : ''}
         </div>
         ${isCreate ? `
         <div class="field">
@@ -1531,6 +1636,41 @@ App.changePassword = async function (e) {
     e.target.reset();
   } catch (err) {
     toast('Could not update password: ' + err.message);
+  }
+};
+
+App.doForgotPassword = async function (e) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const email = fd.get('email').trim();
+  try {
+    const res = await apiClient.forgotPassword(email);
+    if (res.token) {
+      toast('Reset token: ' + res.token);
+      App.go('#/reset-password?token=' + encodeURIComponent(res.token));
+    } else {
+      toast('If an account exists, a reset link has been sent.');
+    }
+  } catch (err) {
+    toast('Something went wrong: ' + err.message);
+  }
+};
+
+App.doResetPassword = async function (e) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const params = new URLSearchParams(location.hash.split('?')[1] || '');
+  const token = fd.get('token') || params.get('token') || '';
+  const newPw = fd.get('newPassword');
+  const confirm = fd.get('confirm');
+  if (newPw.length < 8) { toast('Password must be at least 8 characters.'); return; }
+  if (newPw !== confirm) { toast('Passwords do not match.'); return; }
+  try {
+    await apiClient.resetPassword({ token, newPassword: newPw });
+    toast('Password reset successful. You can now sign in.');
+    App.go('#/account');
+  } catch (err) {
+    toast('Reset failed: ' + err.message);
   }
 };
 

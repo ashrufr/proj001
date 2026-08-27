@@ -565,6 +565,90 @@ def clear_user(conn, token=None):
 
 
 # ---------------------------------------------------------------------------
+# password reset tokens
+# ---------------------------------------------------------------------------
+@_with_conn
+def create_reset_token(conn, email):
+    """Create a password reset token for the user with the given email.
+
+    Returns the plain-text token string (to be shown to the user since there
+    is no email infrastructure), or None if no user with that email exists.
+    """
+    email = (email or "").strip().lower()
+    cursor = conn.cursor()
+    row = cursor.execute("SELECT id FROM Users WHERE email = ?", (email,)).fetchone()
+    if not row:
+        return None
+    user_id = row[0]
+    # Remove any existing reset tokens for this user
+    cursor.execute(
+        "DELETE FROM Meta WHERE [key] LIKE 'reset:%' AND value LIKE ?",
+        (f"%:{user_id}",),
+    )
+    token = secrets.token_urlsafe(32)
+    cursor.execute(
+        "INSERT INTO Meta ([key], value) VALUES (?, ?)",
+        (f"reset:{token[:16]}", f"{token}:{user_id}"),
+    )
+    return token
+
+
+@_with_conn
+def get_user_by_reset_token(conn, token):
+    """Return the user dict for a valid reset token, or None."""
+    if not token:
+        return None
+    cursor = conn.cursor()
+    rows = cursor.execute(
+        "SELECT value FROM Meta WHERE [key] LIKE 'reset:%'"
+    ).fetchall()
+    for r in rows:
+        val = r[0]
+        if ":" in val:
+            t, uid = val.split(":", 1)
+            if t == token:
+                row = cursor.execute("SELECT * FROM Users WHERE id = ?", (uid,)).fetchone()
+                if row:
+                    return _user_to_dict(_row_to_dict(cursor, row))
+    return None
+
+
+@_with_conn
+def reset_password(conn, token, new_password):
+    """Reset a user's password using a valid reset token.
+
+    Raises ValueError if the token is invalid or the password is too short.
+    """
+    if not token:
+        raise ValueError("invalid reset token")
+    if len(str(new_password or "")) < 8:
+        raise ValueError("new password must be at least 8 characters")
+    cursor = conn.cursor()
+    rows = cursor.execute(
+        "SELECT value FROM Meta WHERE [key] LIKE 'reset:%'"
+    ).fetchall()
+    user_id = None
+    for r in rows:
+        val = r[0]
+        if ":" in val:
+            t, uid = val.split(":", 1)
+            if t == token:
+                user_id = uid
+                break
+    if not user_id:
+        raise ValueError("invalid or expired reset token")
+    cursor.execute(
+        "UPDATE Users SET password_hash = ? WHERE id = ?",
+        (hash_password(new_password), user_id),
+    )
+    # Clean up the used token
+    cursor.execute(
+        "DELETE FROM Meta WHERE [key] LIKE 'reset:%' AND value LIKE ?",
+        (f"%:{user_id}",),
+    )
+
+
+# ---------------------------------------------------------------------------
 # business login passwords
 # ---------------------------------------------------------------------------
 @_with_conn
