@@ -217,6 +217,31 @@ a { color: inherit; text-decoration: none; }
 }
 .cat-card:hover { border-color: var(--terracotta); color: var(--terracotta-hover); transform: translateY(-2px); box-shadow: var(--shadow-sm); }
 
+/* ============ Pricing ============ */
+.pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; max-width: 920px; margin: 0 auto; }
+.pricing-card {
+  background: var(--surface); border: 1px solid var(--stone-200);
+  border-radius: var(--radius-xl); padding: 32px 28px; text-align: center;
+  box-shadow: var(--shadow-sm); transition: all .2s ease; position: relative;
+}
+.pricing-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+.pricing-card-featured {
+  border-color: var(--terracotta); box-shadow: var(--shadow), 0 0 0 1px var(--terracotta);
+  padding-top: 42px;
+}
+.pricing-badge {
+  position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+  background: var(--terracotta); color: #fff; font-size: 12px; font-weight: 700;
+  padding: 5px 16px; border-radius: 999px; text-transform: uppercase; letter-spacing: .06em;
+}
+.pricing-name { font-size: 18px; font-weight: 700; color: var(--stone-900); }
+.pricing-price { font-size: 42px; font-weight: 800; color: var(--stone-900); letter-spacing: -0.03em; margin: 12px 0 4px; }
+.pricing-price span { font-size: 16px; font-weight: 600; color: var(--stone-500); }
+.pricing-limit { font-size: 14px; color: var(--stone-500); margin-bottom: 24px; }
+.pricing-features { list-style: none; text-align: left; margin-bottom: 28px; }
+.pricing-features li { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--stone-700); padding: 8px 0; }
+.pricing-features li svg { flex-shrink: 0; color: var(--sage-deep); }
+
 /* ============ CTA banner ============ */
 .cta-banner {
   background: var(--navy); border-radius: var(--radius-3xl);
@@ -514,6 +539,7 @@ a { color: inherit; text-decoration: none; }
   .hero { padding: 44px 0 56px; }
   .section { padding: 56px 0; }
   .feature-grid { grid-template-columns: 1fr; }
+  .pricing-grid { grid-template-columns: 1fr; max-width: 400px; }
   .slot-grid { grid-template-columns: repeat(3, 1fr); }
   .appt-card { flex-wrap: wrap; }
   .day-row { grid-template-columns: 84px 1fr 1fr; }

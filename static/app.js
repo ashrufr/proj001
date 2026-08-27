@@ -358,6 +358,55 @@ function viewHome() {
     </div>
   </section>
 
+  <section class="section section-alt">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Pricing</span>
+        <h2>Simple, transparent plans</h2>
+        <p>Start for free, upgrade when you're ready. No hidden fees.</p>
+      </div>
+      <div class="pricing-grid">
+        <div class="pricing-card">
+          <div class="pricing-name">Free</div>
+          <div class="pricing-price">R0<span>/month</span></div>
+          <div class="pricing-limit">Up to 50 appointments per month</div>
+          <ul class="pricing-features">
+            <li>${I.check} Basic booking page</li>
+            <li>${I.check} Service listings</li>
+            <li>${I.check} Schedule management</li>
+            <li>${I.check} Customer notifications</li>
+          </ul>
+          <button class="btn btn-outline btn-block" onclick="App.go('#/account')">Get started</button>
+        </div>
+        <div class="pricing-card pricing-card-featured">
+          <div class="pricing-badge">Popular</div>
+          <div class="pricing-name">Starter</div>
+          <div class="pricing-price">R100<span>/month</span></div>
+          <div class="pricing-limit">Up to 200 appointments per month</div>
+          <ul class="pricing-features">
+            <li>${I.check} Everything in Free</li>
+            <li>${I.check} Priority support</li>
+            <li>${I.check} Advanced analytics</li>
+            <li>${I.check} Custom branding</li>
+          </ul>
+          <button class="btn btn-primary btn-block" onclick="App.go('#/account')">Start free trial</button>
+        </div>
+        <div class="pricing-card">
+          <div class="pricing-name">Pro</div>
+          <div class="pricing-price">R300<span>/month</span></div>
+          <div class="pricing-limit">Unlimited appointments per month</div>
+          <ul class="pricing-features">
+            <li>${I.check} Everything in Starter</li>
+            <li>${I.check} Unlimited bookings</li>
+            <li>${I.check} Multi-staff support</li>
+            <li>${I.check} API access</li>
+          </ul>
+          <button class="btn btn-outline btn-block" onclick="App.go('#/account')">Start free trial</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section class="section">
     <div class="container">
       <div class="cta-banner">
