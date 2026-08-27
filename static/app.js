@@ -1825,6 +1825,8 @@ App.doSignUp = async function (e) {
   if (role === 'provider' && !business) { toast('Please name your business.'); return; }
   if (role === 'provider' && !category) { toast('Please choose a business category.'); return; }
   if (role === 'provider' && !serviceName) { toast('Please add your first service.'); return; }
+  const btn = e.target.querySelector('button[type="submit"]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating account...'; }
   try {
     const res = await apiClient.signUp({ name, email, password, role, business, category });
     state.user = res.user;
@@ -1841,6 +1843,7 @@ App.doSignUp = async function (e) {
     toast('Welcome to HairNet, ' + name.split(' ')[0] + '!');
     App.go(role === 'provider' ? '#/provider' : '#/browse');
   } catch (err) {
+    if (btn) { btn.disabled = false; btn.textContent = role === 'provider' ? 'Create my business' : 'Create account'; }
     toast('Could not create account: ' + err.message);
   }
 };
@@ -1850,6 +1853,8 @@ App.doLogin = async function (e) {
   const fd = new FormData(e.target);
   const email = fd.get('email').trim();
   const password = fd.get('password');
+  const btn = e.target.querySelector('button[type="submit"]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Signing in...'; }
   try {
     const res = await apiClient.logIn({ email, password });
     state.user = res.user;
@@ -1861,6 +1866,7 @@ App.doLogin = async function (e) {
     toast('Welcome back, ' + res.user.name.split(' ')[0] + '!');
     App.go(res.user.role === 'provider' ? '#/provider' : '#/browse');
   } catch (err) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Sign in'; }
     toast('Sign in failed: ' + err.message);
   }
 };
@@ -1872,6 +1878,8 @@ App.doBusinessSignIn = async function (e) {
   const name = fd.get('name').trim();
   const email = fd.get('email').trim();
   const password = fd.get('password');
+  const btn = e.target.querySelector('button[type="submit"]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Signing in...'; }
   try {
     await apiClient.businessLogIn({ business, name, email, password });
     state.user = { name, email, role: 'provider' };
@@ -1880,6 +1888,7 @@ App.doBusinessSignIn = async function (e) {
     toast('Signed in as ' + business + '.');
     App.go('#/provider');
   } catch (err) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Sign in to dashboard'; }
     toast('Sign in failed: ' + err.message);
   }
 };
@@ -1905,9 +1914,12 @@ App.confirmDeleteAccount = function () {
 };
 
 App.deleteAccount = async function () {
+  const btn = document.querySelector('#modal-root .btn-danger');
+  if (btn) { btn.disabled = true; btn.textContent = 'Deleting...'; }
   try {
     await apiClient.deleteAccount();
   } catch (err) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Yes, delete my account'; }
     toast('Could not delete account: ' + err.message);
     App.closeModal();
     return;
