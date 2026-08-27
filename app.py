@@ -239,6 +239,21 @@ def api_save_business_name():
     return jsonify({"ok": True})
 
 
+@app.route("/api/business/setup", methods=["POST"])
+def api_business_setup():
+    """Link the signed-in provider to a business and update their display name."""
+    user = _current_user()
+    if not user:
+        return jsonify({"error": "not signed in"}), 401
+    data = request.get_json() or {}
+    business = (data.get("business") or "").strip()
+    if not business:
+        return jsonify({"error": "Business name is required."}), 400
+    name = (data.get("name") or user.get("name") or "").strip()
+    linked = db.link_provider_to_business(user["id"], name, business)
+    return jsonify({"ok": True, "business": linked})
+
+
 # ---------------------------------------------------------------------------
 # API: auth
 # ---------------------------------------------------------------------------

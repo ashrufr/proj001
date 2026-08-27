@@ -759,6 +759,17 @@ def set_user_business_name(conn, user_id, business):
     _set_user_business_conn(conn, user_id, business)
 
 
+@_with_conn
+def link_provider_to_business(conn, user_id, name, business):
+    """Update a provider's display name and link them to a business (creating it if needed)."""
+    cursor = conn.cursor()
+    _get_or_create_business(conn, business)
+    _set_user_business_conn(conn, user_id, business)
+    if name:
+        cursor.execute("UPDATE Users SET name = ? WHERE id = ?", (name, user_id))
+    return business
+
+
 # ---------------------------------------------------------------------------
 # business login passwords
 # ---------------------------------------------------------------------------

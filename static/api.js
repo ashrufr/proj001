@@ -34,6 +34,7 @@ const API = (() => {
 
     saveHours: (hours) => req('PUT', '/api/hours', { hours }),
     saveBusinessName: (name) => req('PUT', '/api/business-name', { name }),
+    businessSetup: (d) => req('POST', '/api/business/setup', d),
 
     signUp: (u) => req('POST', '/api/auth/signup', u),
     logIn: (u) => req('POST', '/api/auth/login', u),
