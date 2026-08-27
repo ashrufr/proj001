@@ -264,6 +264,21 @@ def get_business_category(conn, business):
     return (row[0] or "") if row else ""
 
 
+@_with_conn
+def list_businesses(conn):
+    """Return every real business with its category, for the public directory.
+
+    Businesses that have no services yet are still included, so a newly
+    created business shows up under its chosen category and is searchable.
+    """
+    cursor = conn.cursor()
+    rows = cursor.execute(
+        "SELECT name, category FROM Businesses WHERE name <> 'My Business' "
+        "ORDER BY name"
+    ).fetchall()
+    return [{"name": r[0], "category": r[1] or ""} for r in rows]
+
+
 # ---------------------------------------------------------------------------
 # services
 # ---------------------------------------------------------------------------
@@ -1104,6 +1119,7 @@ def get_full_state(conn, viewer=None):
         "hours": hours,
         "user": get_user(conn=conn),
         "businessName": business_name,
+        "businesses": list_businesses(conn),
     }
 
 

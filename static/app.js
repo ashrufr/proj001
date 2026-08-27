@@ -74,6 +74,7 @@ function emptyState() {
     hours: defaultHours(),
     businessName: 'My Business',
     businessCategory: '',
+    businesses: [],
   };
 }
 
@@ -95,6 +96,17 @@ function syncToServer(promise) {
   promise.catch(err => console.warn('HairNet: could not sync to server.', err));
 }
 
+function hasBusiness() {
+  // 'My Business' is the placeholder for "no real business configured yet".
+  const n = state.businessName;
+  return !!(n && n !== 'My Business');
+}
+
+function categoryOptions(selected) {
+  const opts = CATEGORIES.map(c => `<option value="${c}" ${selected === c ? 'selected' : ''}>${c}</option>`).join('');
+  return `<option value="" disabled selected>Select a category…</option>${opts}`;
+}
+
 function normalizeRemote(remote) {
   const hours = {};
   for (let i = 0; i < 7; i++) hours[i] = (remote.hours && (remote.hours[String(i)] || remote.hours[i])) || null;
@@ -105,6 +117,7 @@ function normalizeRemote(remote) {
     hours,
     businessName: remote.businessName || 'My Business',
     businessCategory: remote.businessCategory || '',
+    businesses: remote.businesses || [],
   };
 }
 
@@ -205,7 +218,7 @@ function render() {
   else if (view === 'business') body = viewBusinessAuth();
   else if (view === 'appointments') body = viewAppointments();
   else if (view === 'provider') body = viewProvider(tab);
-  else if (view === 'onboard') body = (state.user && state.user.role === 'provider' && !state.businessName) ? viewOnboard() : ((state.user && state.user.role === 'provider') ? viewProvider(tab) : viewAccount());
+  else if (view === 'onboard') body = (state.user && state.user.role === 'provider' && !hasBusiness()) ? viewOnboard() : ((state.user && state.user.role === 'provider') ? viewProvider(tab) : viewAccount());
   else if (view === 'confirmed') body = viewConfirmed();
   else if (view === 'forgot-password') body = viewForgotPassword();
   else if (view === 'reset-password') body = viewResetPassword();
@@ -529,17 +542,19 @@ function viewBrowse() {
 
 /* Step 1: category grid */
 function viewBrowseCategories() {
-  const counts = {};
-  state.services.forEach(s => { counts[s.category] = (counts[s.category] || 0) + 1; });
+  const bizCount = {};
+  state.businesses.forEach(b => { if (b.category) bizCount[b.category] = (bizCount[b.category] || 0) + 1; });
+  const svcCount = {};
+  state.services.forEach(s => { svcCount[s.category] = (svcCount[s.category] || 0) + 1; });
   const cats = CATEGORIES.map(c => {
     const st = CAT_STYLE[c];
-    const n = counts[c] || 0;
-    const businesses = [...new Set(state.services.filter(s => s.category === c).map(s => s.business))];
+    const n = bizCount[c] || 0;
+    const svcs = svcCount[c] || 0;
     return `<button class="cat-card" onclick="App.go('#/browse?cat='+encodeURIComponent('${c}'))">
       <span style="width:40px;height:40px;border-radius:12px;background:${st.grad};color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0">${st.icon.replace('20"', '18"')}</span>
       <div style="text-align:left">
         <div style="font-weight:700">${c}</div>
-        <div style="font-size:12px;color:var(--stone-500);font-weight:500">${n} service${n === 1 ? '' : 's'} · ${businesses.length} business${businesses.length === 1 ? '' : 'es'}</div>
+        <div style="font-size:12px;color:var(--stone-500);font-weight:500">${n} business${n === 1 ? '' : 'es'} · ${svcs} service${svcs === 1 ? '' : 's'}</div>
       </div>
     </button>`;
   }).join('');
@@ -559,26 +574,28 @@ function viewBrowseCategories() {
 /* Step 2: businesses within a category */
 function viewBrowseBusinesses(cat, q) {
   const cs = CAT_STYLE[cat] || { grad: 'linear-gradient(135deg,#A8A29E,#78716C)', icon: I.scissors };
-  const inCat = state.services.filter(s => s.category === cat);
-  const bizMap = {};
-  inCat.forEach(s => {
-    if (!bizMap[s.business]) bizMap[s.business] = [];
-    bizMap[s.business].push(s);
-  });
-  let businesses = Object.keys(bizMap);
+  // Businesses are listed by the category chosen at business creation, so a
+  // brand-new business (even with no services yet) appears here and is findable.
+  const dirBiz = state.businesses.filter(b => b.category === cat).map(b => b.name);
+  // Fall back to businesses that only exist via services in this category.
+  const svcBiz = [...new Set(state.services.filter(s => s.category === cat).map(s => s.business))];
+  let businesses = [...new Set([...dirBiz, ...svcBiz])];
   if (q) businesses = businesses.filter(b => b.toLowerCase().includes(q));
+
+  const serviceCount = {};
+  state.services.forEach(s => { serviceCount[s.business] = (serviceCount[s.business] || 0) + 1; });
 
   const cards = businesses.map(b => {
     const bs = bizStyle(b);
-    const svcs = bizMap[b];
-    const prices = svcs.map(s => s.price);
+    const n = serviceCount[b] || 0;
+    const prices = state.services.filter(s => s.business === b).map(s => s.price);
     const lo = Math.min(...prices), hi = Math.max(...prices);
-    const priceRange = lo === hi ? money(lo) : money(lo) + ' – ' + money(hi);
+    const priceRange = prices.length ? (lo === hi ? money(lo) : money(lo) + ' – ' + money(hi)) : 'No services yet';
     return `<a class="biz-browse-card" href="#/browse?cat=${encodeURIComponent(cat)}&biz=${encodeURIComponent(b)}">
       <span class="blogo" style="background:${bs.grad}">${bs.initial}</span>
       <div class="binfo">
         <h3>${esc(b)}</h3>
-        <p>${svcs.length} service${svcs.length === 1 ? '' : 's'} · ${priceRange}</p>
+        <p>${n} service${n === 1 ? '' : 's'} · ${priceRange}</p>
         <div class="bcount">View services →</div>
       </div>
     </a>`;
@@ -614,16 +631,19 @@ function viewBrowseBusinesses(cat, q) {
 function viewBrowseServices(cat, biz, q) {
   const cs = CAT_STYLE[cat] || { grad: 'linear-gradient(135deg,#A8A29E,#78716C)', icon: I.scissors };
   const bs = bizStyle(biz);
-  let list = state.services.filter(s => s.category === cat && s.business === biz);
+  // Browsing is business-first now: show everything this business offers.
+  let list = state.services.filter(s => s.business === biz);
   if (q) list = list.filter(s => (s.name + s.desc).toLowerCase().includes(q));
 
+  const empty = q
+    ? `<h3>No services match your search</h3><p>Try a different keyword or clear the search.</p>
+       <button class="btn btn-outline mt-2" onclick="App.go('#/browse?cat=${encodeURIComponent(cat)}&biz=${encodeURIComponent(biz)}')">Clear search</button>`
+    : `<h3>No services yet</h3><p>This business has not added services. Check back soon.</p>`;
   const grid = list.length
     ? `<div class="grid-cards">${list.map(serviceCard).join('')}</div>`
     : `<div class="empty-state">
          <div class="big-ico">${I.search}</div>
-         <h3>No services match your search</h3>
-         <p>Try a different keyword or clear the search.</p>
-         <button class="btn btn-outline mt-2" onclick="App.go('#/browse?cat=${encodeURIComponent(cat)}&biz=${encodeURIComponent(biz)}')">Clear search</button>
+         ${empty}
        </div>`;
 
   return `
@@ -826,8 +846,8 @@ function viewOnboard() {
         </div>
         <div class="field">
           <label for="obz-category">Business category</label>
-          <select id="obz-category" name="category">
-            ${CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('')}
+          <select id="obz-category" name="category" required>
+            ${categoryOptions()}
           </select>
           <div class="hint">Pick the category that best describes your business.</div>
         </div>
@@ -913,6 +933,10 @@ function viewOAuthComplete() {
         } else {
           // New provider: create the account only when onboarding finishes.
           sessionStorage.setItem('ae_pending_google_name', s.name || '');
+          // Provisional user so the onboarding view renders; the real account
+          // is created by the business-setup call, which returns the real user.
+          state.user = { name: s.name || '', email: s.email || '', role: 'provider' };
+          persist();
           App.go('#/onboard');
         }
       } else {
@@ -1052,8 +1076,8 @@ function signInForm(role, mode) {
         </div>
         <div class="field">
           <label for="category">Business category</label>
-          <select id="category" name="category">
-            ${CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('')}
+          <select id="category" name="category" required>
+            ${categoryOptions()}
           </select>
         </div>` : ''}` : ''}
         <div class="field">
@@ -1089,7 +1113,10 @@ function signInForm(role, mode) {
 }
 
 function businessSignInForm() {
-  const names = [...new Set(state.services.map(s => s.business).filter(Boolean))];
+  const names = [...new Set([
+    ...state.businesses.map(b => b.name),
+    ...state.services.map(s => s.business).filter(Boolean),
+  ].filter(Boolean))];
   if (state.businessName && !names.includes(state.businessName)) names.push(state.businessName);
   names.sort();
   const opts = names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
@@ -1199,8 +1226,8 @@ function viewBusinessAuth() {
         </div>
         <div class="field">
           <label for="category">Business category</label>
-          <select id="category" name="category">
-            ${CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('')}
+          <select id="category" name="category" required>
+            ${categoryOptions()}
           </select>
         </div>` : ''}
         <div class="field">
@@ -1728,6 +1755,7 @@ App.doSignUp = async function (e) {
   const password = validatePassword(fd);
   if (password === null) return;
   if (role === 'provider' && !business) { toast('Please name your business.'); return; }
+  if (role === 'provider' && !category) { toast('Please choose a business category.'); return; }
   try {
     await apiClient.signUp({ name, email, password, role, business, category });
     state.user = { name, email, role };
@@ -1974,6 +2002,7 @@ App.onboardSetupBusiness = async function (e) {
   const business = fd.get('business').trim();
   const category = (fd.get('category') || '').trim();
   if (!business) { toast('Please enter your business name.'); return; }
+  if (!category) { toast('Please choose a business category.'); return; }
   try {
     const res = await apiClient.businessSetup({ name, business, category });
     sessionStorage.removeItem('ae_pending_google_name');

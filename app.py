@@ -312,11 +312,13 @@ def api_business_setup():
         return jsonify({"error": "Business name is required."}), 400
     name = (data.get("name") or user.get("name") or "").strip()
     category = (data.get("category") or "").strip()
+    if not category:
+        return jsonify({"error": "A business category is required."}), 400
     linked = db.link_provider_to_business(user["id"], name, business, category=category)
     return jsonify({
         "ok": True,
         "business": linked,
-        "category": category or db.get_business_category(linked),
+        "category": category,
         "user": user,
     })
 
@@ -342,11 +344,14 @@ def api_signup():
         return jsonify({"error": str(exc)}), 409
     _set_user(user, token)
     if data.get("role") == "provider" and data.get("business"):
+        category = (data.get("category") or "").strip()
+        if not category:
+            return jsonify({"error": "A business category is required."}), 400
         db.set_user_business(user["id"], data["business"])
         try:
             db.set_business_password(
                 data["business"], data.get("password", ""),
-                owner_id=user["id"], category=(data.get("category") or "").strip(),
+                owner_id=user["id"], category=category,
             )
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 400
