@@ -237,7 +237,7 @@ function navHtml() {
         ${u ? `
           <span style="display:flex;align-items:center;gap:8px">
             <span class="avatar">${esc(u.name ? u.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase() : 'U')}</span>
-            <span class="uname">${esc(u.name || u.email)}</span>
+            <a class="uname" href="#/account" title="My account">${esc(u.name || u.email)}</a>
           </span>
           <button class="icon-btn" title="Sign out" onclick="App.signOut()">${I.logOut}</button>
         ` : `
@@ -271,7 +271,7 @@ function footerHtml() {
       </div>
     </div>
     <div class="container" style="margin-top:32px;border-top:1px solid var(--stone-200);padding-top:20px">
-      <p style="margin:0">© ${new Date().getFullYear()} ARX Intelligence. All rights reserved. <span class="version">v1.007</span></p>
+      <p style="margin:0">© ${new Date().getFullYear()} ARX Intelligence. All rights reserved. <span class="version">v1.008</span></p>
     </div>
   </footer>`;
 }
