@@ -2238,7 +2238,7 @@ async function pollCatalog() {
     state.hours = hours;
     persist();
     const { view } = parseHash();
-    if (view === 'browse' || view === 'service') render();
+    if (view === 'browse' || view === 'service' || view === 'home' || view === 'provider') render();
   } catch (err) {
     /* server unavailable — keep local data */
   }
