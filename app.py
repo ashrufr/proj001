@@ -120,15 +120,18 @@ def index():
 # ---------------------------------------------------------------------------
 @app.route("/api/bootstrap")
 def api_bootstrap():
-    user = _current_user()
-    state = db.get_full_state(viewer=user)
-    state["user"] = user
-    if user and user.get("role") == "provider":
-        business = db.get_user_business(user["id"])
-        if business:
-            state["businessName"] = business
-            state["businessCategory"] = db.get_business_category(business)
-    return jsonify(state)
+    try:
+        user = _current_user()
+        state = db.get_full_state(viewer=user)
+        state["user"] = user
+        if user and user.get("role") == "provider":
+            business = db.get_user_business(user["id"])
+            if business:
+                state["businessName"] = business
+                state["businessCategory"] = db.get_business_category(business)
+        return jsonify(state)
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
 
 
 # ---------------------------------------------------------------------------
