@@ -654,7 +654,8 @@ def delete_user(conn, user_id):
     Removes the user's session tokens, business association meta, and any
     appointments booked by them. If they are a provider, also removes their
     services and the linked Business when they are the sole owner of that
-    business.
+    business — the business's existing bookings are cancelled rather than
+    deleted so customers still see the appointment was called off.
     """
     cursor = conn.cursor()
 
@@ -687,7 +688,10 @@ def delete_user(conn, user_id):
             if (other and other[0] or 0) == 0:
                 cursor.execute("DELETE FROM Services WHERE business_id = ?", (business_id,))
                 cursor.execute("DELETE FROM Businesses WHERE id = ?", (business_id,))
-                cursor.execute("DELETE FROM Appointments WHERE business = ?", (business,))
+                cursor.execute(
+                    "UPDATE Appointments SET status = 'cancelled' WHERE business = ?",
+                    (business,),
+                )
 
     # any business this account created that still exists loses its owner link
     cursor.execute("UPDATE Businesses SET owner_id = NULL WHERE owner_id = ?", (user_id,))
