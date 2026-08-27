@@ -45,6 +45,10 @@ const CAT_STYLE = {
 
 function bizStyle(name) { return { grad: 'linear-gradient(135deg,#A8A29E,#78716C)', initial: (name || '?').charAt(0).toUpperCase() }; }
 
+function catStyle(cat) {
+  return CAT_STYLE[cat] || { grad: 'linear-gradient(135deg,#A8A29E,#78716C)', icon: I.spark };
+}
+
 /* ---------------- State ---------------- */
 const STORE_KEY = 'hairnet_state_v1';
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -710,7 +714,7 @@ function viewBrowseServices(cat, biz, q) {
 
 function serviceCard(s) {
   const bs = bizStyle(s.business);
-  const cs = CAT_STYLE[s.category];
+  const cs = catStyle(s.category);
   return `
   <a class="service-card" href="#/service/${s.id}">
     <div class="cover" style="background:${cs.grad}">
@@ -734,7 +738,7 @@ function viewService(id) {
   const s = byId(id);
   if (!s) return viewNotFound();
   const bs = bizStyle(s.business);
-  const cs = CAT_STYLE[s.category];
+  const cs = catStyle(s.category);
 
   return `
   <div class="page container">
@@ -1376,7 +1380,7 @@ function viewAppointments() {
 
 function apptCard(a, cancellable) {
   const bs = bizStyle(a.business);
-  const cs = CAT_STYLE[a.category];
+  const cs = catStyle(a.category);
   const stCls = { pending: 'status-pending', confirmed: 'status-confirmed', cancelled: 'status-cancelled', completed: 'status-completed' }[a.status] || 'status-pending';
   return `
   <div class="appt-card card">
@@ -1457,7 +1461,7 @@ function dashOverview() {
 
   const recent = upcoming.length ? upcoming.map(a => `
     <div class="appt-card card" style="padding:14px 18px">
-      <span class="avatar-logo" style="width:40px;height:40px;border-radius:12px;background:${CAT_STYLE[a.category].grad}">${CAT_STYLE[a.category].icon.replace('20"','18"')}</span>
+      <span class="avatar-logo" style="width:40px;height:40px;border-radius:12px;background:${catStyle(a.category).grad}">${catStyle(a.category).icon.replace('20"','18"')}</span>
       <div style="flex:1;min-width:0">
         <h3 style="font-size:14px">${esc(a.serviceName)}</h3>
         ${a.customerName ? `<div class="sm" style="font-size:12px;font-weight:600;color:var(--stone-600)">${I.user.replace('18"','12"')} ${esc(a.customerName)}</div>` : ''}
@@ -1491,7 +1495,7 @@ function calApptRow(a) {
   const stCls = a.status === 'pending' ? 'status-pending' : a.status === 'confirmed' ? 'status-confirmed' : 'status-cancelled';
   return `
   <div class="appt-card card">
-    <span class="avatar-logo" style="background:${CAT_STYLE[a.category].grad}">${CAT_STYLE[a.category].icon.replace('20"','22"')}</span>
+    <span class="avatar-logo" style="background:${catStyle(a.category).grad}">${catStyle(a.category).icon.replace('20"','22"')}</span>
     <div style="flex:1;min-width:180px">
       <h3>${esc(a.serviceName)}</h3>
       <div class="meta">${I.clock.replace('18"','13"')} ${fmtTime(a.time)} · ${minutesLabel(a.duration)}</div>
@@ -1574,7 +1578,7 @@ function dashServices() {
     const bs = bizStyle(s.business);
     return `
     <div class="svc-row card" style="border-radius:14px;margin-bottom:10px">
-      <span class="avatar-logo" style="background:${CAT_STYLE[s.category].grad}">${CAT_STYLE[s.category].icon.replace('20"','20"')}</span>
+      <span class="avatar-logo" style="background:${catStyle(s.category).grad}">${catStyle(s.category).icon.replace('20"','20"')}</span>
       <div style="flex:1;min-width:0">
         <h3>${esc(s.name)}</h3>
         <div class="meta">${esc(s.business)} · ${esc(s.category)} · ${minutesLabel(s.duration)}</div>
