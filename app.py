@@ -3,17 +3,59 @@
 Serves the static frontend and a JSON REST API backed by Azure SQL.
 Run:  python3 app.py
 """
+import hashlib
+import base64
 import json
 import os
 import re
 import secrets
+from urllib.parse import urlencode
 
-from flask import Flask, jsonify, request, send_from_directory, session
+import requests as http_requests
+from flask import Flask, jsonify, request, redirect, send_from_directory, session
 
 import db
 
 app = Flask(__name__, static_folder="static", static_url_path="")
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", secrets.token_hex(32))
+
+# ---------------------------------------------------------------------------
+# HTTPS enforcement (production)
+# ---------------------------------------------------------------------------
+@app.before_request
+def _enforce_https():
+    """Redirect HTTP to HTTPS in production (behind Azure load balancer)."""
+    if not request.is_secure and os.environ.get("WEBSITE_HOSTNAME"):
+        url = request.url.replace("http://", "https://", 1)
+        return redirect(url, code=301)
+
+
+# ---------------------------------------------------------------------------
+# Google OAuth 2.0 (Authorization Code + PKCE)
+# ---------------------------------------------------------------------------
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+GOOGLE_AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
+GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
+GOOGLE_USERINFO_ENDPOINT = "https://www.googleapis.com/oauth2/v2/userinfo"
+
+
+def _pkce_code_verifier():
+    """Generate a cryptographically random code verifier (43-128 chars)."""
+    return secrets.token_urlsafe(64)
+
+
+def _pkce_code_challenge(verifier):
+    """Derive the S256 code challenge from a code verifier."""
+    digest = hashlib.sha256(verifier.encode("ascii")).digest()
+    return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+
+
+def _google_redirect_uri():
+    """Build the OAuth callback URL, respecting the production hostname."""
+    host = os.environ.get("WEBSITE_HOSTNAME") or request.host
+    scheme = "https" if os.environ.get("WEBSITE_HOSTNAME") else request.scheme
+    return f"{scheme}://{host}/api/auth/google/callback"
 
 
 # ---------------------------------------------------------------------------
@@ -294,6 +336,108 @@ def api_reset_password():
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     return jsonify({"ok": True})
+
+
+@app.route("/api/auth/google/authorize")
+def api_google_authorize():
+    """Begin Google OAuth: generate PKCE verifier, state, and redirect URL."""
+    if not GOOGLE_CLIENT_ID:
+        return jsonify({"error": "Google OAuth is not configured"}), 503
+
+    # PKCE
+    code_verifier = _pkce_code_verifier()
+    code_challenge = _pkce_code_challenge(code_verifier)
+    session["google_oauth_verifier"] = code_verifier
+
+    # CSRF state
+    state = secrets.token_urlsafe(32)
+    session["google_oauth_state"] = state
+
+    redirect_uri = _google_redirect_uri()
+
+    params = {
+        "client_id": GOOGLE_CLIENT_ID,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "state": state,
+        "code_challenge": code_challenge,
+        "code_challenge_method": "S256",
+        "access_type": "offline",
+        "prompt": "consent",
+    }
+    url = f"{GOOGLE_AUTH_ENDPOINT}?{urlencode(params)}"
+    return jsonify({"url": url})
+
+
+@app.route("/api/auth/google/callback")
+def api_google_callback():
+    """Handle the redirect from Google: exchange code for tokens, sign in."""
+    # --- CSRF validation ---
+    state = request.args.get("state", "")
+    expected_state = session.pop("google_oauth_state", None)
+    if not state or state != expected_state:
+        return redirect("/#/account?error=oauth_state_mismatch", code=302)
+
+    # --- Error from Google ---
+    error = request.args.get("error")
+    if error:
+        return redirect(f"/#/account?error={error}", code=302)
+
+    # --- Exchange authorization code for tokens (with PKCE verifier) ---
+    code = request.args.get("code", "")
+    code_verifier = session.pop("google_oauth_verifier", None)
+    if not code or not code_verifier:
+        return redirect("/#/account?error=oauth_missing_code", code=302)
+
+    redirect_uri = _google_redirect_uri()
+    token_resp = http_requests.post(GOOGLE_TOKEN_ENDPOINT, data={
+        "code": code,
+        "client_id": GOOGLE_CLIENT_ID,
+        "client_secret": GOOGLE_CLIENT_SECRET,
+        "redirect_uri": redirect_uri,
+        "grant_type": "authorization_code",
+        "code_verifier": code_verifier,
+    }, timeout=10)
+
+    if token_resp.status_code != 200:
+        return redirect("/#/account?error=oauth_token_exchange_failed", code=302)
+
+    token_data = token_resp.json()
+    access_token = token_data.get("access_token")
+    if not access_token:
+        return redirect("/#/account?error=oauth_no_access_token", code=302)
+
+    # --- Fetch user info from Google ---
+    userinfo_resp = http_requests.get(GOOGLE_USERINFO_ENDPOINT, headers={
+        "Authorization": f"Bearer {access_token}",
+    }, timeout=10)
+
+    if userinfo_resp.status_code != 200:
+        return redirect("/#/account?error=oauth_userinfo_failed", code=302)
+
+    userinfo = userinfo_resp.json()
+    google_id = userinfo.get("id")
+    email = userinfo.get("email", "")
+    name = userinfo.get("name", "")
+
+    if not google_id or not email:
+        return redirect("/#/account?error=oauth_incomplete_profile", code=302)
+
+    # --- Create or find user, start session ---
+    user, token = db.create_user_from_google(google_id, email, name)
+    _set_user(user, token)
+
+    return redirect("/#/oauth-complete", code=302)
+
+
+@app.route("/api/auth/google/session", methods=["GET"])
+def api_google_session():
+    """Return the current user after OAuth redirect (SPA reads this)."""
+    user = _current_user()
+    if not user:
+        return jsonify({"error": "not signed in"}), 401
+    return jsonify({"ok": True, "user": user})
 
 
 # ---------------------------------------------------------------------------

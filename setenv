@@ -1,1 +1,6 @@
 export AZURE_SQL_CONNECTION="DRIVER={ODBC Driver 18 for SQL Server};SERVER=tcp:proj001.database.windows.net,1433;DATABASE=proj001;UID=ashrufr;PWD=/bnK4th1r;"
+
+# Google OAuth 2.0 (create credentials at https://console.cloud.google.com/apis/credentials)
+# Authorized redirect URI: https://<your-host>/api/auth/google/callback
+export GOOGLE_CLIENT_ID=""
+export GOOGLE_CLIENT_SECRET=""

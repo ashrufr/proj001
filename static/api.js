@@ -42,6 +42,8 @@ const API = (() => {
     changePassword: (d) => req('POST', '/api/auth/change-password', d),
     forgotPassword: (email) => req('POST', '/api/auth/forgot-password', { email }),
     resetPassword: (d) => req('POST', '/api/auth/reset-password', d),
+    googleAuthorize: () => req('GET', '/api/auth/google/authorize'),
+    googleSession: () => req('GET', '/api/auth/google/session'),
   };
 })();
 

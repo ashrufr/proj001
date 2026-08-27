@@ -113,8 +113,12 @@ CREATE TABLE Users (
   email NVARCHAR(200) NOT NULL UNIQUE,
   role NVARCHAR(20) NOT NULL DEFAULT 'customer',
   password_hash NVARCHAR(400) NOT NULL DEFAULT '',
+  google_id NVARCHAR(100) NOT NULL DEFAULT '',
   created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
 );
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Users') AND name = 'google_id')
+ALTER TABLE Users ADD google_id NVARCHAR(100) NOT NULL DEFAULT '';
 
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Services')
 CREATE TABLE Services (
@@ -646,6 +650,63 @@ def reset_password(conn, token, new_password):
         "DELETE FROM Meta WHERE [key] LIKE 'reset:%' AND value LIKE ?",
         (f"%:{user_id}",),
     )
+
+
+# ---------------------------------------------------------------------------
+# Google OAuth
+# ---------------------------------------------------------------------------
+@_with_conn
+def get_user_by_google_id(conn, google_id):
+    """Return user dict for a user linked to the given Google ID, or None."""
+    if not google_id:
+        return None
+    cursor = conn.cursor()
+    row = cursor.execute("SELECT * FROM Users WHERE google_id = ?", (google_id,)).fetchone()
+    if not row:
+        return None
+    return _user_to_dict(_row_to_dict(cursor, row))
+
+
+@_with_conn
+def link_google_id(conn, user_id, google_id):
+    """Link a Google account to an existing local user."""
+    if not user_id or not google_id:
+        return
+    conn.cursor().execute(
+        "UPDATE Users SET google_id = ? WHERE id = ?", (google_id, user_id)
+    )
+
+
+@_with_conn
+def create_user_from_google(conn, google_id, email, name):
+    """Create or find a user from Google OAuth. Returns (user_dict, token)."""
+    # 1. Check if a user is already linked to this Google ID
+    cursor = conn.cursor()
+    row = cursor.execute("SELECT * FROM Users WHERE google_id = ?", (google_id,)).fetchone()
+    if row:
+        d = _row_to_dict(cursor, row)
+        token = _create_session_token(conn, d["id"])
+        return _user_to_dict(d), token
+
+    # 2. Check if a user exists with this email
+    row = cursor.execute("SELECT * FROM Users WHERE email = ?", (email,)).fetchone()
+    if row:
+        d = _row_to_dict(cursor, row)
+        # Link the Google ID to the existing account
+        cursor.execute("UPDATE Users SET google_id = ? WHERE id = ?", (google_id, d["id"]))
+        token = _create_session_token(conn, d["id"])
+        return _user_to_dict(d), token
+
+    # 3. Create a new user
+    uid = _new_id("u")
+    cursor.execute(
+        "INSERT INTO Users (id, name, email, role, password_hash, google_id) "
+        "VALUES (?, ?, ?, 'customer', '', ?)",
+        (uid, name or email.split("@")[0], email, google_id),
+    )
+    token = _create_session_token(conn, uid)
+    row = cursor.execute("SELECT * FROM Users WHERE id = ?", (uid,)).fetchone()
+    return _user_to_dict(_row_to_dict(cursor, row)), token
 
 
 # ---------------------------------------------------------------------------
