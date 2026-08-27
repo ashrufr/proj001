@@ -1150,7 +1150,7 @@ def get_full_state(conn, viewer=None):
         "hours": hours,
         "user": get_user(conn=conn),
         "businessName": business_name,
-        "businesses": list_businesses(conn),
+        "businesses": list_businesses(conn=conn),
     }
 
 
