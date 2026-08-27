@@ -105,11 +105,15 @@ CREATE TABLE Businesses (
   name NVARCHAR(200) NOT NULL UNIQUE,
   password_hash NVARCHAR(400) NOT NULL DEFAULT '',
   owner_id NVARCHAR(20) NULL,
+  category NVARCHAR(100) NOT NULL DEFAULT '',
   created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
 );
 
 IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Businesses') AND name = 'owner_id')
 ALTER TABLE Businesses ADD owner_id NVARCHAR(20) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Businesses') AND name = 'category')
+ALTER TABLE Businesses ADD category NVARCHAR(100) NOT NULL DEFAULT '';
 
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Users')
 CREATE TABLE Users (
@@ -206,15 +210,15 @@ def init_db():
 # ---------------------------------------------------------------------------
 # businesses
 # ---------------------------------------------------------------------------
-def _get_or_create_business(conn, name, owner_id=None):
+def _get_or_create_business(conn, name, owner_id=None, category=None):
     cursor = conn.cursor()
     row = cursor.execute("SELECT id FROM Businesses WHERE name = ?", (name,)).fetchone()
     if row:
         return row[0]
     bid = _new_id("b")
     cursor.execute(
-        "INSERT INTO Businesses (id, name, owner_id) VALUES (?, ?, ?)",
-        (bid, name, owner_id),
+        "INSERT INTO Businesses (id, name, owner_id, category) VALUES (?, ?, ?, ?)",
+        (bid, name, owner_id, category or ""),
     )
     return bid
 
@@ -246,6 +250,18 @@ def get_business_owner(conn, business):
         "SELECT owner_id FROM Businesses WHERE name = ?", (business,)
     ).fetchone()
     return row[0] if row else None
+
+
+@_with_conn
+def get_business_category(conn, business):
+    """Return the category of a business (by name), or ''."""
+    if not business:
+        return ""
+    cursor = conn.cursor()
+    row = cursor.execute(
+        "SELECT category FROM Businesses WHERE name = ?", (business,)
+    ).fetchone()
+    return (row[0] or "") if row else ""
 
 
 # ---------------------------------------------------------------------------
@@ -926,10 +942,10 @@ def set_user_business_name(conn, user_id, business):
 
 
 @_with_conn
-def link_provider_to_business(conn, user_id, name, business):
+def link_provider_to_business(conn, user_id, name, business, category=None):
     """Update a provider's display name and link them to a business (creating it if needed)."""
     cursor = conn.cursor()
-    _get_or_create_business(conn, business, owner_id=user_id)
+    _get_or_create_business(conn, business, owner_id=user_id, category=category)
     _set_user_business_conn(conn, user_id, business)
     if name:
         cursor.execute("UPDATE Users SET name = ? WHERE id = ?", (name, user_id))
@@ -940,10 +956,10 @@ def link_provider_to_business(conn, user_id, name, business):
 # business login passwords
 # ---------------------------------------------------------------------------
 @_with_conn
-def set_business_password(conn, name, password, owner_id=None):
+def set_business_password(conn, name, password, owner_id=None, category=None):
     if len(str(password or "")) < 8:
         raise ValueError("password must be at least 8 characters")
-    business_id = _get_or_create_business(conn, name, owner_id=owner_id)
+    business_id = _get_or_create_business(conn, name, owner_id=owner_id, category=category)
     conn.cursor().execute(
         "UPDATE Businesses SET password_hash = ? WHERE id = ?",
         (hash_password(password), business_id),

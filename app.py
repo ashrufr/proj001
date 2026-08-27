@@ -127,6 +127,7 @@ def api_bootstrap():
         business = db.get_user_business(user["id"])
         if business:
             state["businessName"] = business
+            state["businessCategory"] = db.get_business_category(business)
     return jsonify(state)
 
 
@@ -310,8 +311,14 @@ def api_business_setup():
     if not business:
         return jsonify({"error": "Business name is required."}), 400
     name = (data.get("name") or user.get("name") or "").strip()
-    linked = db.link_provider_to_business(user["id"], name, business)
-    return jsonify({"ok": True, "business": linked, "user": user})
+    category = (data.get("category") or "").strip()
+    linked = db.link_provider_to_business(user["id"], name, business, category=category)
+    return jsonify({
+        "ok": True,
+        "business": linked,
+        "category": category or db.get_business_category(linked),
+        "user": user,
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -338,7 +345,8 @@ def api_signup():
         db.set_user_business(user["id"], data["business"])
         try:
             db.set_business_password(
-                data["business"], data.get("password", ""), owner_id=user["id"]
+                data["business"], data.get("password", ""),
+                owner_id=user["id"], category=(data.get("category") or "").strip(),
             )
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 400
@@ -353,7 +361,11 @@ def api_login():
         return jsonify({"error": "Incorrect email or password."}), 401
     user, token = result
     _set_user(user, token)
-    return jsonify({"ok": True, "user": user})
+    payload = {"ok": True, "user": user}
+    if user.get("role") == "provider":
+        payload["businessName"] = db.get_user_business(user["id"])
+        payload["businessCategory"] = db.get_business_category(payload["businessName"])
+    return jsonify(payload)
 
 
 @app.route("/api/auth/business-login", methods=["POST"])
@@ -661,7 +673,8 @@ def api_google_confirm():
         return jsonify({"error": "email already registered with another account"}), 409
     _set_user(user, token)
     business = db.get_user_business_name(user["id"]) if user.get("role") == "provider" else None
-    return jsonify({"ok": True, "user": user, "businessName": business})
+    category = db.get_business_category(business) if business else None
+    return jsonify({"ok": True, "user": user, "businessName": business, "businessCategory": category})
 
 
 # ---------------------------------------------------------------------------

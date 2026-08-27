@@ -73,6 +73,7 @@ function emptyState() {
     appointments: [],
     hours: defaultHours(),
     businessName: 'My Business',
+    businessCategory: '',
   };
 }
 
@@ -103,6 +104,7 @@ function normalizeRemote(remote) {
     appointments: remote.appointments || [],
     hours,
     businessName: remote.businessName || 'My Business',
+    businessCategory: remote.businessCategory || '',
   };
 }
 
@@ -822,6 +824,13 @@ function viewOnboard() {
           <input id="obz-business" name="business" type="text" placeholder="e.g. Riverside Barbershop" required />
           <div class="hint">Shown to customers on your booking page.</div>
         </div>
+        <div class="field">
+          <label for="obz-category">Business category</label>
+          <select id="obz-category" name="category">
+            ${CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('')}
+          </select>
+          <div class="hint">Pick the category that best describes your business.</div>
+        </div>
         <button class="btn btn-primary btn-lg btn-block" type="submit">Continue to dashboard ${I.arrowRight}</button>
       </form>
     </div>
@@ -897,6 +906,7 @@ function viewOAuthComplete() {
           const res = await apiClient.googleConfirm();
           state.user = res.user;
           if (res.businessName) state.businessName = res.businessName;
+          if (res.businessCategory) state.businessCategory = res.businessCategory;
           persist();
           toast('Signed in with Google, ' + res.user.name.split(' ')[0] + '!');
           App.go('#/provider');
@@ -1039,6 +1049,12 @@ function signInForm(role, mode) {
           <label for="business">Business name</label>
           <input id="business" name="business" type="text" placeholder="e.g. Riverside Barbershop" required />
           <div class="hint">Shown to customers on your booking page.</div>
+        </div>
+        <div class="field">
+          <label for="category">Business category</label>
+          <select id="category" name="category">
+            ${CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('')}
+          </select>
         </div>` : ''}` : ''}
         <div class="field">
           <label for="email">Email</label>
@@ -1180,6 +1196,12 @@ function viewBusinessAuth() {
           <label for="business">Business name</label>
           <input id="business" name="business" type="text" placeholder="e.g. Riverside Barbershop" required />
           <div class="hint">Shown to customers on your booking page.</div>
+        </div>
+        <div class="field">
+          <label for="category">Business category</label>
+          <select id="category" name="category">
+            ${CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('')}
+          </select>
         </div>` : ''}
         <div class="field">
           <label for="email">Work email</label>
@@ -1335,8 +1357,8 @@ function viewProvider(tab) {
     <div class="page-head">
       <div class="flex items-center justify-between wrap gap-2">
         <div>
-          <h1>Dashboard</h1>
-          <p>Manage your services, hours and bookings.</p>
+          <h1>${esc(state.businessName)}</h1>
+          <p>${state.businessCategory ? esc(state.businessCategory) + ' — ' : ''}Manage your services, hours and bookings.</p>
         </div>
         <span class="meta-chip" style="background:var(--sage-soft);color:var(--sage-deep)">${esc(state.businessName)}</span>
       </div>
@@ -1702,13 +1724,17 @@ App.doSignUp = async function (e) {
   const email = fd.get('email').trim();
   const role = fd.get('role');
   const business = fd.get('business') ? fd.get('business').trim() : '';
+  const category = (fd.get('category') || '').trim();
   const password = validatePassword(fd);
   if (password === null) return;
   if (role === 'provider' && !business) { toast('Please name your business.'); return; }
   try {
-    await apiClient.signUp({ name, email, password, role, business });
+    await apiClient.signUp({ name, email, password, role, business, category });
     state.user = { name, email, role };
-    if (role === 'provider') state.businessName = business;
+    if (role === 'provider') {
+      state.businessName = business;
+      state.businessCategory = category;
+    }
     persist();
     toast('Welcome to HairNet, ' + name.split(' ')[0] + '!');
     App.go(role === 'provider' ? '#/onboard' : '#/browse');
@@ -1725,6 +1751,10 @@ App.doLogin = async function (e) {
   try {
     const res = await apiClient.logIn({ email, password });
     state.user = { name: res.user.name, email, role: res.user.role };
+    if (res.user.role === 'provider') {
+      state.businessName = res.businessName || state.businessName;
+      state.businessCategory = res.businessCategory || state.businessCategory;
+    }
     persist();
     toast('Welcome back, ' + res.user.name.split(' ')[0] + '!');
     App.go(res.user.role === 'provider' ? '#/provider' : '#/browse');
@@ -1942,11 +1972,13 @@ App.onboardSetupBusiness = async function (e) {
   const fd = new FormData(e.target);
   const name = fd.get('name').trim();
   const business = fd.get('business').trim();
+  const category = (fd.get('category') || '').trim();
   if (!business) { toast('Please enter your business name.'); return; }
   try {
-    const res = await apiClient.businessSetup({ name, business });
+    const res = await apiClient.businessSetup({ name, business, category });
     sessionStorage.removeItem('ae_pending_google_name');
     state.businessName = res.business || business;
+    state.businessCategory = res.category || category;
     state.user = Object.assign({}, res.user || {}, { name });
     persist();
     toast('Business set up. Now add your products and preferences.');
