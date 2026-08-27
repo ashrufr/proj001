@@ -25,9 +25,11 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY", secrets.token_hex(32))
 @app.before_request
 def _enforce_https():
     """Redirect HTTP to HTTPS in production (behind Azure load balancer)."""
-    if not request.is_secure and os.environ.get("WEBSITE_HOSTNAME"):
-        url = request.url.replace("http://", "https://", 1)
-        return redirect(url, code=301)
+    if os.environ.get("WEBSITE_HOSTNAME"):
+        proto = request.headers.get("X-Forwarded-Proto", request.scheme)
+        if proto != "https":
+            url = request.url.replace("http://", "https://", 1)
+            return redirect(url, code=301)
 
 
 # ---------------------------------------------------------------------------
