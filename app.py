@@ -315,6 +315,17 @@ def api_sign_out():
     return jsonify({"ok": True})
 
 
+@app.route("/api/account", methods=["DELETE"])
+def api_delete_account():
+    """Permanently delete the signed-in user's account and their data."""
+    user = _current_user()
+    if not user:
+        return jsonify({"error": "not signed in"}), 401
+    db.delete_user(user["id"])
+    _clear_user()
+    return jsonify({"ok": True})
+
+
 @app.route("/api/auth/change-password", methods=["POST"])
 def api_change_password():
     user = _current_user()

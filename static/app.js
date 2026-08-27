@@ -271,7 +271,7 @@ function footerHtml() {
       </div>
     </div>
     <div class="container" style="margin-top:32px;border-top:1px solid var(--stone-200);padding-top:20px">
-      <p style="margin:0">© ${new Date().getFullYear()} ARX Intelligence. All rights reserved. <span class="version">v1.004</span></p>
+      <p style="margin:0">© ${new Date().getFullYear()} ARX Intelligence. All rights reserved. <span class="version">v1.005</span></p>
     </div>
   </footer>`;
 }
@@ -947,6 +947,12 @@ function viewAccount() {
           </div>
           <button class="btn btn-primary btn-lg btn-block" type="submit">Update password</button>
         </form>
+      </div>
+
+      <div class="card form-card" style="padding:34px;margin-top:20px;border:1px solid var(--danger-soft)">
+        <h2 style="font-size:18px;font-weight:800;color:var(--stone-900);margin-bottom:8px">Delete account</h2>
+        <p class="sm" style="margin-bottom:16px;color:var(--stone-600)">Permanently remove your account and all associated data. This cannot be undone.</p>
+        <button class="btn btn-danger btn-block" onclick="App.confirmDeleteAccount()">Delete my account</button>
       </div>
     </div>`;
   }
@@ -1728,6 +1734,36 @@ App.signOut = function () {
   persist();
   syncToServer(apiClient.signOut());
   toast('Signed out.');
+  App.go('#/');
+};
+
+App.confirmDeleteAccount = function () {
+  openModal(`
+    <div class="modal modal-head">
+      <h2>Delete your account?</h2>
+      <p class="m-sub">This permanently removes your profile and all associated data. This action cannot be undone.</p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="App.closeModal()">Cancel</button>
+        <button class="btn btn-danger" onclick="App.deleteAccount()">Yes, delete my account</button>
+      </div>
+    </div>`);
+};
+
+App.deleteAccount = async function () {
+  try {
+    await apiClient.deleteAccount();
+  } catch (err) {
+    toast('Could not delete account: ' + err.message);
+    App.closeModal();
+    return;
+  }
+  App.closeModal();
+  state.user = null;
+  state.services = [];
+  state.appointments = [];
+  state.businessName = 'My Business';
+  persist();
+  toast('Your account has been deleted. Goodbye.');
   App.go('#/');
 };
 

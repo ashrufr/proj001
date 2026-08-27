@@ -568,6 +568,53 @@ def clear_user(conn, token=None):
         conn.cursor().execute("DELETE FROM Meta WHERE [key] LIKE 'session:%'")
 
 
+@_with_conn
+def delete_user(conn, user_id):
+    """Permanently delete a user and their personal data.
+
+    Removes the user's session tokens, business association meta, and any
+    appointments booked by them. If they are a provider, also removes their
+    services and the linked Business when they are the sole owner of that
+    business.
+    """
+    cursor = conn.cursor()
+
+    business = _meta(conn, f"business_of:{user_id}") or None
+
+    # session tokens belonging to this user
+    rows = cursor.execute(
+        "SELECT [key] FROM Meta WHERE [key] LIKE 'session:%' AND value LIKE ?",
+        (f"%:{user_id}",),
+    ).fetchall()
+    for r in rows:
+        cursor.execute("DELETE FROM Meta WHERE [key] = ?", (r[0],))
+
+    # business association meta
+    cursor.execute("DELETE FROM Meta WHERE [key] = ?", (f"business_of:{user_id}",))
+
+    # appointments booked by this user
+    cursor.execute("DELETE FROM Appointments WHERE customer_id = ?", (user_id,))
+
+    # provider-owned business cleanup
+    if business:
+        row = cursor.execute("SELECT id FROM Businesses WHERE name = ?", (business,)).fetchone()
+        if row:
+            business_id = row[0]
+            # only remove the business if no other provider still points to it
+            other = cursor.execute(
+                "SELECT COUNT(*) FROM Meta WHERE [key] LIKE 'business_of:%' AND value = ? AND [key] <> ?",
+                (business, f"business_of:{user_id}"),
+            ).fetchone()
+            if (other and other[0] or 0) == 0:
+                cursor.execute("DELETE FROM Services WHERE business_id = ?", (business_id,))
+                cursor.execute("DELETE FROM Businesses WHERE id = ?", (business_id,))
+                cursor.execute("DELETE FROM Appointments WHERE business = ?", (business,))
+
+    cursor.execute("DELETE FROM Users WHERE id = ?", (user_id,))
+
+
+
+
 # ---------------------------------------------------------------------------
 # password reset tokens
 # ---------------------------------------------------------------------------

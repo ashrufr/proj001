@@ -40,6 +40,7 @@ const API = (() => {
     logIn: (u) => req('POST', '/api/auth/login', u),
     businessLogIn: (u) => req('POST', '/api/auth/business-login', u),
     signOut: () => req('DELETE', '/api/auth'),
+    deleteAccount: () => req('DELETE', '/api/account'),
     changePassword: (d) => req('POST', '/api/auth/change-password', d),
     forgotPassword: (email) => req('POST', '/api/auth/forgot-password', { email }),
     resetPassword: (d) => req('POST', '/api/auth/reset-password', d),
