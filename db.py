@@ -170,6 +170,22 @@ CREATE TABLE Meta (
   [key] NVARCHAR(100) PRIMARY KEY,
   value NVARCHAR(MAX) NOT NULL
 );
+
+/* ---- indexes ---- */
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Services_BusinessId' AND object_id = OBJECT_ID('Services'))
+CREATE INDEX IX_Services_BusinessId ON Services(business_id);
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Services_CreatedAt' AND object_id = OBJECT_ID('Services'))
+CREATE INDEX IX_Services_CreatedAt ON Services(created_at);
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Appointments_Customer' AND object_id = OBJECT_ID('Appointments'))
+CREATE INDEX IX_Appointments_Customer ON Appointments(customer_id);
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Appointments_Business_Date' AND object_id = OBJECT_ID('Appointments'))
+CREATE INDEX IX_Appointments_Business_Date ON Appointments(business, date);
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Users_GoogleId' AND object_id = OBJECT_ID('Users'))
+CREATE INDEX IX_Users_GoogleId ON Users(google_id);
 """
 
 
@@ -661,13 +677,15 @@ def delete_user(conn, user_id):
 
     business = _meta(conn, f"business_of:{user_id}") or None
 
-    # session tokens belonging to this user
-    rows = cursor.execute(
-        "SELECT [key] FROM Meta WHERE [key] LIKE 'session:%' AND value LIKE ?",
-        (f"%:{user_id}",),
-    ).fetchall()
-    for r in rows:
-        cursor.execute("DELETE FROM Meta WHERE [key] = ?", (r[0],))
+    # revoke every session belonging to this user — the active one and any
+    # orphaned sessions on other devices
+    for prefix in ("session:%", "reset:%"):
+        rows = cursor.execute(
+            "SELECT [key] FROM Meta WHERE [key] LIKE ? AND value LIKE ?",
+            (prefix, f"%:{user_id}"),
+        ).fetchall()
+        for r in rows:
+            cursor.execute("DELETE FROM Meta WHERE [key] = ?", (r[0],))
 
     # business association meta
     cursor.execute("DELETE FROM Meta WHERE [key] = ?", (f"business_of:{user_id}",))

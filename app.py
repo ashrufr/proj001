@@ -76,7 +76,8 @@ def _set_user(user, token):
 
 
 def _clear_user():
-    token = session.pop("token", None)
+    token = session.get("token")
+    session.clear()
     if token:
         db.clear_user(token=token)
 
