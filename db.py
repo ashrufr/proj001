@@ -686,12 +686,15 @@ def delete_user(conn, user_id):
                 (business, f"business_of:{user_id}"),
             ).fetchone()
             if (other and other[0] or 0) == 0:
-                cursor.execute("DELETE FROM Services WHERE business_id = ?", (business_id,))
-                cursor.execute("DELETE FROM Businesses WHERE id = ?", (business_id,))
+                # Cancel this business's bookings (so customers still see them),
+                # detaching their service reference so the services can be
+                # removed without tripping the service_id foreign key.
                 cursor.execute(
-                    "UPDATE Appointments SET status = 'cancelled' WHERE business = ?",
+                    "UPDATE Appointments SET status = 'cancelled', service_id = NULL WHERE business = ?",
                     (business,),
                 )
+                cursor.execute("DELETE FROM Services WHERE business_id = ?", (business_id,))
+                cursor.execute("DELETE FROM Businesses WHERE id = ?", (business_id,))
 
     # any business this account created that still exists loses its owner link
     cursor.execute("UPDATE Businesses SET owner_id = NULL WHERE owner_id = ?", (user_id,))
