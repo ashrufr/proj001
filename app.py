@@ -493,10 +493,14 @@ def api_google_callback():
         return redirect(f"{target}?error=oauth_incomplete_profile", code=302)
 
     # --- Create or find user, start session ---
-    if handler == "provider":
-        user, token = db.create_provider_from_google(google_id, email, name)
-    else:
-        user, token = db.create_user_from_google(google_id, email, name)
+    try:
+        if handler == "provider":
+            user, token = db.create_provider_from_google(google_id, email, name)
+        else:
+            user, token = db.create_user_from_google(google_id, email, name)
+    except ValueError as exc:
+        # Block OAuth when the email already belongs to another account.
+        return redirect(f"{target}?error=oauth_email_taken", code=302)
     _set_user(user, token)
 
     return redirect(f"{target}", code=302)

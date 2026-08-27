@@ -688,14 +688,12 @@ def create_user_from_google(conn, google_id, email, name):
         token = _create_session_token(conn, d["id"])
         return _user_to_dict(d), token
 
-    # 2. Check if a user exists with this email
+    # 2. If a user exists with this email but a different Google account,
+    #    or no Google account at all, block the OAuth sign-up rather than
+    #    silently claiming/upgrading that account.
     row = cursor.execute("SELECT * FROM Users WHERE email = ?", (email,)).fetchone()
     if row:
-        d = _row_to_dict(cursor, row)
-        # Link the Google ID to the existing account
-        cursor.execute("UPDATE Users SET google_id = ? WHERE id = ?", (google_id, d["id"]))
-        token = _create_session_token(conn, d["id"])
-        return _user_to_dict(d), token
+        raise ValueError("email already registered with another account")
 
     # 3. Create a new user
     uid = _new_id("u")
@@ -728,13 +726,7 @@ def create_provider_from_google(conn, google_id, email, name):
 
     row = cursor.execute("SELECT * FROM Users WHERE email = ?", (email,)).fetchone()
     if row:
-        d = _row_to_dict(cursor, row)
-        cursor.execute(
-            "UPDATE Users SET role = 'provider', google_id = ? WHERE id = ?",
-            (google_id, d["id"]),
-        )
-        token = _create_session_token(conn, d["id"])
-        return _user_to_dict({**d, "role": "provider"}), token
+        raise ValueError("email already registered with another account")
 
     uid = _new_id("u")
     cursor.execute(

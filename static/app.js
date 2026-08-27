@@ -934,7 +934,11 @@ function viewOAuthComplete() {
     } catch {
       const params = new URLSearchParams(location.hash.split('?')[1] || '');
       const err = params.get('error');
-      toast('Google sign-in failed.' + (err ? ' (' + err + ')' : ''));
+      if (err === 'oauth_email_taken') {
+        toast('This email is already linked to an existing HairNet account. Please sign in with that account instead.');
+      } else {
+        toast('Google sign-in failed.' + (err ? ' (' + err + ')' : ''));
+      }
       App.go('#/account');
     }
   })();
