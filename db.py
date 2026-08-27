@@ -1134,7 +1134,7 @@ def get_full_state(conn, viewer=None):
     cursor = conn.cursor()
     svc_rows = cursor.execute("SELECT * FROM Services ORDER BY created_at").fetchall()
     svc_dicts = _rows_to_dicts(cursor, svc_rows)
-    business_name = _meta(conn, "business_name", "My Business")
+    business_name = "My Business"
     if viewer is None:
         appointments = []
     elif viewer.get("role") == "provider":
