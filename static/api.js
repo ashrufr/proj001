@@ -46,6 +46,8 @@ const API = (() => {
     resetPassword: (d) => req('POST', '/api/auth/reset-password', d),
     googleAuthorize: (handler) => req('GET', '/api/auth/google/authorize' + (handler ? '?handler=' + handler : '')),
     googleSession: () => req('GET', '/api/auth/google/session'),
+    googleSignupStatus: () => req('GET', '/api/auth/google/signup-status'),
+    googleConfirm: () => req('POST', '/api/auth/google/confirm'),
     googleBusinessSession: () => req('GET', '/api/auth/google/business-session'),
     businessForgotPassword: (business) => req('POST', '/api/auth/business/forgot-password', { business }),
     businessResetPassword: (d) => req('POST', '/api/auth/business/reset-password', d),

@@ -55,7 +55,7 @@ function defaultHours() {
   DAY_ORDER.forEach(d => {
     if (d === 0) h[d] = null;
     else if (d === 6) h[d] = { open: '10:00', close: '14:00' };
-    else h[d] = { open: '09:00', close: '17:00' };
+    else h[d] = { open: '08:00', close: '17:00' };
   });
   return h;
 }
@@ -795,6 +795,8 @@ function viewConfirmed() {
    Phase 1 = email/oauth sign-in; Phase 3 = products & prefs in the dashboard. */
 function viewOnboard() {
   const u = state.user || {};
+  const prepName = sessionStorage.getItem('ae_pending_google_name') || '';
+  const greetName = u.name || prepName || '';
   return `
   <div class="page container" style="max-width:620px">
     <div class="stepper" style="margin-bottom:26px;max-width:460px">
@@ -805,7 +807,7 @@ function viewOnboard() {
       <div class="step"><span class="dot">3</span><small>Products & setup</small></div>
     </div>
     <div class="page-head center" style="text-align:center;margin-bottom:26px">
-      <span class="badge-pill">${I.layout.replace('18"','14"')} Welcome, ${esc(u.name || '')}!</span>
+      <span class="badge-pill">${I.layout.replace('18"','14"')} Welcome, ${esc(greetName)}!</span>
       <h1>Set up your business</h1>
       <p>Tell us the name of your business and how to address you.</p>
     </div>
@@ -879,20 +881,35 @@ function viewResetPassword() {
 
 /* ---------------- OAuth Complete ---------------- */
 function viewOAuthComplete() {
-  // This view is reached after the backend redirects from Google OAuth.
-  // The session cookie is already set by the backend; fetch the user.
+  // This view is reached after the backend redirects from Google OAuth. The
+  // account is NOT created yet — it is finalized below, so a cancelled flow
+  // never leaves a Gmail account behind.
   (async () => {
     try {
-      const res = await apiClient.googleSession();
-      state.user = res.user;
-      if (res.user.role === 'provider') {
-        if (res.businessName !== undefined) state.businessName = res.businessName;
+      const s = await apiClient.googleSignupStatus();
+      if (!s.pending) {
+        toast('Google sign-in did not complete.');
+        App.go('#/account');
+        return;
       }
-      persist();
-      toast('Signed in with Google, ' + res.user.name.split(' ')[0] + '!');
-      if (state.user.role === 'provider') {
-        App.go(state.businessName ? '#/provider' : '#/onboard');
+      if (s.handler === 'provider') {
+        if (s.existing) {
+          const res = await apiClient.googleConfirm();
+          state.user = res.user;
+          if (res.businessName) state.businessName = res.businessName;
+          persist();
+          toast('Signed in with Google, ' + res.user.name.split(' ')[0] + '!');
+          App.go('#/provider');
+        } else {
+          // New provider: create the account only when onboarding finishes.
+          sessionStorage.setItem('ae_pending_google_name', s.name || '');
+          App.go('#/onboard');
+        }
       } else {
+        const res = await apiClient.googleConfirm();
+        state.user = res.user;
+        persist();
+        toast('Signed in with Google, ' + res.user.name.split(' ')[0] + '!');
         App.go('#/browse');
       }
     } catch {
@@ -1928,8 +1945,9 @@ App.onboardSetupBusiness = async function (e) {
   if (!business) { toast('Please enter your business name.'); return; }
   try {
     const res = await apiClient.businessSetup({ name, business });
+    sessionStorage.removeItem('ae_pending_google_name');
     state.businessName = res.business || business;
-    state.user = Object.assign({}, state.user, { name });
+    state.user = Object.assign({}, res.user || {}, { name });
     persist();
     toast('Business set up. Now add your products and preferences.');
     App.go('#/provider');
@@ -1982,7 +2000,7 @@ App.doDeleteService = function (id) {
 /* provider hours */
 App.toggleDay = function (d) {
   if (state.hours[d]) { state.hours[d] = null; }
-  else { state.hours[d] = { open: '09:00', close: '17:00' }; }
+  else { state.hours[d] = { open: '08:00', close: '17:00' }; }
   render();
 };
 App.saveHours = function () {

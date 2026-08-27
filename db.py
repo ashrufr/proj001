@@ -822,6 +822,26 @@ def get_user_by_google_id(conn, google_id):
 
 
 @_with_conn
+def find_user_by_google_or_email(conn, google_id, email):
+    """Return an existing user matching a Google ID (or email), or None.
+
+    Used to decide whether a Google sign-in maps to an already-created account
+    (a returning user) or to a brand-new user that still needs to finish the
+    signup flow before its account is created.
+    """
+    cursor = conn.cursor()
+    if google_id:
+        row = cursor.execute("SELECT * FROM Users WHERE google_id = ?", (google_id,)).fetchone()
+        if row:
+            return _user_to_dict(_row_to_dict(cursor, row))
+    if email:
+        row = cursor.execute("SELECT * FROM Users WHERE email = ?", (email,)).fetchone()
+        if row:
+            return _user_to_dict(_row_to_dict(cursor, row))
+    return None
+
+
+@_with_conn
 def link_google_id(conn, user_id, google_id):
     """Link a Google account to an existing local user."""
     if not user_id or not google_id:

@@ -9,6 +9,7 @@ import json
 import os
 import re
 import secrets
+import time
 from urllib.parse import urlencode
 
 import requests as http_requests
@@ -282,10 +283,26 @@ def api_save_business_name():
 
 @app.route("/api/business/setup", methods=["POST"])
 def api_business_setup():
-    """Link the signed-in provider to a business and update their display name."""
+    """Link the provider to a business and update their display name.
+
+    For a new Google signup the account is only created here — the moment the
+    provider finishes onboarding. If they cancel the flow before this call the
+    pending Google signup is discarded and no account is created.
+    """
     user = _current_user()
+    # A brand-new provider coming through Google OAuth has no account yet; the
+    # identity lives in the session. Finalize (create) the account here.
     if not user:
-        return jsonify({"error": "not signed in"}), 401
+        pending = _pending_google_signup(handler="provider")
+        if not pending:
+            return jsonify({"error": "not signed in"}), 401
+        try:
+            user, token = db.create_provider_from_google(
+                pending["google_id"], pending["email"], pending["name"]
+            )
+        except ValueError:
+            return jsonify({"error": "email already registered with another account"}), 409
+        _set_user(user, token)
     if user.get("role") != "provider":
         return jsonify({"error": "only business owners can set up a business"}), 403
     data = request.get_json() or {}
@@ -294,7 +311,7 @@ def api_business_setup():
         return jsonify({"error": "Business name is required."}), 400
     name = (data.get("name") or user.get("name") or "").strip()
     linked = db.link_provider_to_business(user["id"], name, business)
-    return jsonify({"ok": True, "business": linked})
+    return jsonify({"ok": True, "business": linked, "user": user})
 
 
 # ---------------------------------------------------------------------------
@@ -546,16 +563,17 @@ def api_google_callback():
     if not google_id or not email:
         return redirect(f"{target}?error=oauth_incomplete_profile", code=302)
 
-    # --- Create or find user, start session ---
-    try:
-        if handler == "provider":
-            user, token = db.create_provider_from_google(google_id, email, name)
-        else:
-            user, token = db.create_user_from_google(google_id, email, name)
-    except ValueError as exc:
-        # Block OAuth when the email already belongs to another account.
-        return redirect(f"{target}?error=oauth_email_taken", code=302)
-    _set_user(user, token)
+    # Cache the Google identity but DO NOT create the account yet. The account
+    # is only created once the user finishes the signup flow (a customer
+    # confirms on the completion screen; a new provider completes onboarding).
+    # If the user cancels / backs out before that, no account is left behind.
+    session["google_signup"] = {
+        "google_id": google_id,
+        "email": email,
+        "name": name,
+        "handler": handler,
+        "created_at": time.time(),
+    }
 
     return redirect(f"{target}", code=302)
 
@@ -571,6 +589,79 @@ def api_google_session():
         business = db.get_user_business_name(user["id"])
         payload["businessName"] = business
     return jsonify(payload)
+
+
+# A pending Google signup is only trusted for a short window. After that it is
+# discarded so a cancelled/stale flow can never finalize into an account.
+_PENDING_SIGNUP_TTL = 15 * 60  # 15 minutes
+
+
+def _pending_google_signup(handler=None, pop=True):
+    """Return a valid cached Google signup, or None. Expires and checks handler."""
+    pending = session.get("google_signup")
+    if not pending:
+        return None
+    if time.time() - pending.get("created_at", 0) > _PENDING_SIGNUP_TTL:
+        session.pop("google_signup", None)
+        return None
+    if handler and pending.get("handler") != handler:
+        return None
+    return session.pop("google_signup", None) if pop else pending
+
+
+@app.route("/api/auth/google/signup-status", methods=["GET"])
+def api_google_signup_status():
+    """Report a deferred Google signup so the SPA can route the user.
+
+    Only an authorized pending signup is honoured. The account has NOT been
+    created yet, so cancelling the flow leaves no user behind.
+    """
+    pending = _pending_google_signup(pop=False)
+    if not pending:
+        return jsonify({"pending": False})
+    handler = pending.get("handler", "customer")
+    existing = db.find_user_by_google_or_email(
+        pending.get("google_id"), pending.get("email")
+    )
+    business_name = None
+    if existing and existing.get("role") == "provider":
+        business_name = db.get_user_business_name(existing["id"])
+    return jsonify({
+        "pending": True,
+        "handler": handler,
+        "name": pending.get("name"),
+        "email": pending.get("email"),
+        "existing": existing is not None,
+        "businessName": business_name,
+    })
+
+
+@app.route("/api/auth/google/confirm", methods=["POST"])
+def api_google_confirm():
+    """Create (or sign back in) the Google account once the user finishes.
+
+    This is the final step of the Google signup. It only runs for a pending
+    signup cached in the session; if the flow was cancelled, no user appears.
+    """
+    pending = _pending_google_signup()
+    if not pending:
+        return jsonify({"error": "no pending Google signup"}), 400
+    handler = pending.get("handler", "customer")
+    try:
+        if handler == "provider":
+            user, token = db.create_provider_from_google(
+                pending["google_id"], pending["email"], pending["name"]
+            )
+        else:
+            user, token = db.create_user_from_google(
+                pending["google_id"], pending["email"], pending["name"]
+            )
+    except ValueError:
+        # Block OAuth when the email already belongs to another account.
+        return jsonify({"error": "email already registered with another account"}), 409
+    _set_user(user, token)
+    business = db.get_user_business_name(user["id"]) if user.get("role") == "provider" else None
+    return jsonify({"ok": True, "user": user, "businessName": business})
 
 
 # ---------------------------------------------------------------------------
