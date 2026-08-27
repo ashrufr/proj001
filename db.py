@@ -252,12 +252,26 @@ def get_business_owner(conn, business):
     return row[0] if row else None
 
 
+def _has_column(conn, table, column):
+    """True if the given column exists on the table (guards against migrations
+    that have not run yet, so a missing column can't break the whole catalog)."""
+    cursor = conn.cursor()
+    row = cursor.execute(
+        "SELECT COUNT(*) FROM sys.columns "
+        "WHERE object_id = OBJECT_ID(?) AND name = ?",
+        (table, column),
+    ).fetchone()
+    return bool(row and row[0])
+
+
 @_with_conn
 def get_business_category(conn, business):
     """Return the category of a business (by name), or ''."""
     if not business:
         return ""
     cursor = conn.cursor()
+    if not _has_column(conn, "Businesses", "category"):
+        return ""
     row = cursor.execute(
         "SELECT category FROM Businesses WHERE name = ?", (business,)
     ).fetchone()
@@ -272,11 +286,16 @@ def list_businesses(conn):
     created business shows up under its chosen category and is searchable.
     """
     cursor = conn.cursor()
+    if _has_column(conn, "Businesses", "category"):
+        rows = cursor.execute(
+            "SELECT name, category FROM Businesses WHERE name <> 'My Business' "
+            "ORDER BY name"
+        ).fetchall()
+        return [{"name": r[0], "category": r[1] or ""} for r in rows]
     rows = cursor.execute(
-        "SELECT name, category FROM Businesses WHERE name <> 'My Business' "
-        "ORDER BY name"
+        "SELECT name FROM Businesses WHERE name <> 'My Business' ORDER BY name"
     ).fetchall()
-    return [{"name": r[0], "category": r[1] or ""} for r in rows]
+    return [{"name": r[0], "category": ""} for r in rows]
 
 
 # ---------------------------------------------------------------------------

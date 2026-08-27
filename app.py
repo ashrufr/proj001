@@ -692,6 +692,16 @@ def api_init_db():
     return jsonify({"ok": True})
 
 
+# Ensure the schema (and any migrations, e.g. Businesses.category) exists before
+# serving requests, regardless of whether the process was started via the
+# __main__ branch or gunicorn. Idempotent; a failure is non-fatal on startup.
+if not os.environ.get("FLASK_SKIP_INIT_DB"):
+    try:
+        db.init_db()
+    except Exception as exc:  # pragma: no cover - startup best-effort
+        print("HairNet: deferred DB init (will retry via /api/init-db):", exc)
+
+
 if __name__ == "__main__":
     db.init_db()
     print("HairNet backend running at http://localhost:8000")
