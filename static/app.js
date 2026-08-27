@@ -107,6 +107,44 @@ function categoryOptions(selected) {
   return `<option value="" disabled selected>Select a category…</option>${opts}`;
 }
 
+function defaultServiceFields() {
+  return `
+  <div class="field">
+    <label for="svc-name">Default service name</label>
+    <input id="svc-name" name="serviceName" type="text" placeholder="e.g. Signature Haircut" required />
+    <div class="hint">Your first bookable service — required so customers can find you.</div>
+  </div>
+  <div class="flex gap-2" style="gap:12px">
+    <div class="field" style="flex:1">
+      <label for="svc-price">Price (R)</label>
+      <input id="svc-price" name="servicePrice" type="number" min="0" step="0.01" value="50" required />
+    </div>
+    <div class="field" style="flex:1">
+      <label for="svc-duration">Duration (min)</label>
+      <input id="svc-duration" name="serviceDuration" type="number" min="15" max="480" step="15" value="60" required />
+    </div>
+  </div>`;
+}
+
+async function addDefaultService(fd, business, category) {
+  const serviceName = (fd.get('serviceName') || '').trim();
+  if (!serviceName) return null;
+  const svc = {
+    id: uid(), business, category,
+    name: serviceName, desc: '',
+    duration: Number(fd.get('serviceDuration')) || 60,
+    price: Number(fd.get('servicePrice')) || 0,
+  };
+  try {
+    const created = await apiClient.createService(svc);
+    state.services = [created, ...(state.services || [])];
+    return created;
+  } catch (err) {
+    toast('Could not add the default service: ' + err.message);
+    return null;
+  }
+}
+
 function normalizeRemote(remote) {
   const hours = {};
   for (let i = 0; i < 7; i++) hours[i] = (remote.hours && (remote.hours[String(i)] || remote.hours[i])) || null;
@@ -542,10 +580,12 @@ function viewBrowse() {
 
 /* Step 1: category grid */
 function viewBrowseCategories() {
+  const businesses = state.businesses || [];
+  const services = state.services || [];
   const bizCount = {};
-  state.businesses.forEach(b => { if (b.category) bizCount[b.category] = (bizCount[b.category] || 0) + 1; });
+  businesses.forEach(b => { if (b.category) bizCount[b.category] = (bizCount[b.category] || 0) + 1; });
   const svcCount = {};
-  state.services.forEach(s => { svcCount[s.category] = (svcCount[s.category] || 0) + 1; });
+  services.forEach(s => { svcCount[s.category] = (svcCount[s.category] || 0) + 1; });
   const cats = CATEGORIES.map(c => {
     const st = CAT_STYLE[c];
     const n = bizCount[c] || 0;
@@ -574,21 +614,23 @@ function viewBrowseCategories() {
 /* Step 2: businesses within a category */
 function viewBrowseBusinesses(cat, q) {
   const cs = CAT_STYLE[cat] || { grad: 'linear-gradient(135deg,#A8A29E,#78716C)', icon: I.scissors };
+  const directory = state.businesses || [];
+  const services = state.services || [];
   // Businesses are listed by the category chosen at business creation, so a
   // brand-new business (even with no services yet) appears here and is findable.
-  const dirBiz = state.businesses.filter(b => b.category === cat).map(b => b.name);
+  const dirBiz = directory.filter(b => b.category === cat).map(b => b.name);
   // Fall back to businesses that only exist via services in this category.
-  const svcBiz = [...new Set(state.services.filter(s => s.category === cat).map(s => s.business))];
+  const svcBiz = [...new Set(services.filter(s => s.category === cat).map(s => s.business))];
   let businesses = [...new Set([...dirBiz, ...svcBiz])];
   if (q) businesses = businesses.filter(b => b.toLowerCase().includes(q));
 
   const serviceCount = {};
-  state.services.forEach(s => { serviceCount[s.business] = (serviceCount[s.business] || 0) + 1; });
+  services.forEach(s => { serviceCount[s.business] = (serviceCount[s.business] || 0) + 1; });
 
   const cards = businesses.map(b => {
     const bs = bizStyle(b);
     const n = serviceCount[b] || 0;
-    const prices = state.services.filter(s => s.business === b).map(s => s.price);
+    const prices = services.filter(s => s.business === b).map(s => s.price);
     const lo = Math.min(...prices), hi = Math.max(...prices);
     const priceRange = prices.length ? (lo === hi ? money(lo) : money(lo) + ' – ' + money(hi)) : 'No services yet';
     return `<a class="biz-browse-card" href="#/browse?cat=${encodeURIComponent(cat)}&biz=${encodeURIComponent(b)}">
@@ -631,8 +673,9 @@ function viewBrowseBusinesses(cat, q) {
 function viewBrowseServices(cat, biz, q) {
   const cs = CAT_STYLE[cat] || { grad: 'linear-gradient(135deg,#A8A29E,#78716C)', icon: I.scissors };
   const bs = bizStyle(biz);
+  const services = state.services || [];
   // Browsing is business-first now: show everything this business offers.
-  let list = state.services.filter(s => s.business === biz);
+  let list = services.filter(s => s.business === biz);
   if (q) list = list.filter(s => (s.name + s.desc).toLowerCase().includes(q));
 
   const empty = q
@@ -851,6 +894,7 @@ function viewOnboard() {
           </select>
           <div class="hint">Pick the category that best describes your business.</div>
         </div>
+        ${defaultServiceFields()}
         <button class="btn btn-primary btn-lg btn-block" type="submit">Continue to dashboard ${I.arrowRight}</button>
       </form>
     </div>
@@ -1079,7 +1123,8 @@ function signInForm(role, mode) {
           <select id="category" name="category" required>
             ${categoryOptions()}
           </select>
-        </div>` : ''}` : ''}
+        </div>
+        ${defaultServiceFields()}` : ''}` : ''}
         <div class="field">
           <label for="email">Email</label>
           <input id="email" name="email" type="email" placeholder="you@example.com" required />
@@ -1229,7 +1274,8 @@ function viewBusinessAuth() {
           <select id="category" name="category" required>
             ${categoryOptions()}
           </select>
-        </div>` : ''}
+        </div>
+        ${defaultServiceFields()}` : ''}
         <div class="field">
           <label for="email">Work email</label>
           <input id="email" name="email" type="email" placeholder="you@yourbusiness.com" required />
@@ -1752,20 +1798,23 @@ App.doSignUp = async function (e) {
   const role = fd.get('role');
   const business = fd.get('business') ? fd.get('business').trim() : '';
   const category = (fd.get('category') || '').trim();
+  const serviceName = (fd.get('serviceName') || '').trim();
   const password = validatePassword(fd);
   if (password === null) return;
   if (role === 'provider' && !business) { toast('Please name your business.'); return; }
   if (role === 'provider' && !category) { toast('Please choose a business category.'); return; }
+  if (role === 'provider' && !serviceName) { toast('Please add your first service.'); return; }
   try {
     await apiClient.signUp({ name, email, password, role, business, category });
     state.user = { name, email, role };
     if (role === 'provider') {
       state.businessName = business;
       state.businessCategory = category;
+      await addDefaultService(fd, business, category);
     }
     persist();
     toast('Welcome to HairNet, ' + name.split(' ')[0] + '!');
-    App.go(role === 'provider' ? '#/onboard' : '#/browse');
+    App.go(role === 'provider' ? '#/provider' : '#/browse');
   } catch (err) {
     toast('Could not create account: ' + err.message);
   }
@@ -2001,16 +2050,19 @@ App.onboardSetupBusiness = async function (e) {
   const name = fd.get('name').trim();
   const business = fd.get('business').trim();
   const category = (fd.get('category') || '').trim();
+  const serviceName = (fd.get('serviceName') || '').trim();
   if (!business) { toast('Please enter your business name.'); return; }
   if (!category) { toast('Please choose a business category.'); return; }
+  if (!serviceName) { toast('Please add your first service.'); return; }
   try {
     const res = await apiClient.businessSetup({ name, business, category });
     sessionStorage.removeItem('ae_pending_google_name');
     state.businessName = res.business || business;
     state.businessCategory = res.category || category;
     state.user = Object.assign({}, res.user || {}, { name });
+    await addDefaultService(fd, business, category);
     persist();
-    toast('Business set up. Now add your products and preferences.');
+    toast('Business set up. Now add more products and preferences.');
     App.go('#/provider');
   } catch (err) {
     toast('Could not set up business: ' + err.message);
