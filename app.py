@@ -55,6 +55,9 @@ def _pkce_code_challenge(verifier):
 
 def _google_redirect_uri():
     """Build the OAuth callback URL, respecting the production hostname."""
+    explicit = os.environ.get("GOOGLE_REDIRECT_URI")
+    if explicit:
+        return explicit
     host = os.environ.get("WEBSITE_HOSTNAME") or request.host
     scheme = "https" if os.environ.get("WEBSITE_HOSTNAME") else request.scheme
     return f"{scheme}://{host}/api/auth/google/callback"
