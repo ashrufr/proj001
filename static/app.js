@@ -184,30 +184,31 @@ function isPast(date, time) {
   const that = new Date(y, mo - 1, d, h, mi);
   return that.getTime() <= now.getTime();
 }
-function timeslots(dayNum, dateStr) {
+function timeslots(dayNum, dateStr, duration) {
   const h = state.hours[dayNum];
   if (!h) return [];
+  const dur = Number(duration) || 30;
   const out = [];
   const [oh, om] = h.open.split(':').map(Number);
   const [ch, cm] = h.close.split(':').map(Number);
   let cur = oh * 60 + om;
   const end = ch * 60 + cm;
-  while (cur < end) {
+  while (cur + dur <= end) {
     const t = String(Math.floor(cur / 60)).padStart(2, '0') + ':' + String(cur % 60).padStart(2, '0');
     out.push(t);
     cur += 30;
   }
   return out;
 }
-function isBooked(dateStr, time) {
-  return state.appointments.some(a => a.date === dateStr && a.time === time && a.status !== 'cancelled');
+function isBooked(dateStr, time, business) {
+  return state.appointments.some(a => a.date === dateStr && a.time === time && a.status !== 'cancelled' && a.business === business);
 }
 function hashStr(s) { let x = 0; for (let i = 0; i < s.length; i++) x = (x * 31 + s.charCodeAt(i)) >>> 0; return x; }
 function pseudoBooked(dateStr, time) { return hashStr(dateStr + '|' + time) % 4 === 0; }
-function slotState(dateStr, time, dayNum) {
+function slotState(dateStr, time, dayNum, business) {
   const today = iso(new Date());
   const isToday = dateStr === today;
-  if (isBooked(dateStr, time)) return 'booked';
+  if (isBooked(dateStr, time, business)) return 'booked';
   if (isToday && isPast(dateStr, time)) return 'past';
   return 'available';
 }
@@ -796,7 +797,7 @@ function bookingPanel(s) {
   const customerName = savedName !== null ? savedName : (state.user && state.user.name ? state.user.name : '');
 
   const chips = days.map(d => {
-    const disabled = timeslots(d.dow, d.iso).length === 0;
+    const disabled = timeslots(d.dow, d.iso, s.duration).length === 0;
     const sel = d.iso === selDate;
     return `<button class="day-chip ${sel ? 'sel' : ''} ${disabled ? 'disabled' : ''}"
       onclick="App.pickDate('${d.iso}')">
@@ -806,9 +807,9 @@ function bookingPanel(s) {
     </button>`;
   }).join('');
 
-  const slots = timeslots(fromISO(selDate).getDay(), selDate);
+  const slots = timeslots(fromISO(selDate).getDay(), selDate, s.duration);
   const slotBtns = slots.length ? slots.map(t => {
-    const st = slotState(selDate, t, fromISO(selDate).getDay());
+    const st = slotState(selDate, t, fromISO(selDate).getDay(), s.business);
     const sel = t === selTime;
     if (st === 'booked') return `<div class="time-slot booked">${fmtTime(t)}</div>`;
     if (st === 'past') return `<div class="time-slot past-slot">${fmtTime(t)}</div>`;
@@ -1585,7 +1586,8 @@ function dashAppointments() {
 }
 
 function dashServices() {
-  const rows = state.services.map(s => {
+  const myBiz = (state.businessName || '').toLowerCase();
+  const rows = state.services.filter(s => (s.business || '').toLowerCase() === myBiz).map(s => {
     const bs = bizStyle(s.business);
     return `
     <div class="svc-row card" style="border-radius:14px;margin-bottom:10px">
@@ -1689,9 +1691,10 @@ App.onCustomerName = function (input) {
 };
 App.nextAvailable = function () {
   const today = new Date(); today.setHours(0, 0, 0, 0);
+  const s = currentBookingService();
   for (let i = 0; i < 14; i++) {
     const d = addDays(today, i);
-    if (timeslots(d.getDay(), iso(d)).length) {
+    if (timeslots(d.getDay(), iso(d), s && s.duration).length) {
       sessionStorage.setItem('ae_sel_date', iso(d));
       sessionStorage.setItem('ae_sel_time', '');
       render();
@@ -1700,13 +1703,18 @@ App.nextAvailable = function () {
   }
   toast('No availability in the next two weeks.');
 };
+function currentBookingService() {
+  const { id } = parseHash();
+  return id ? byId(id) : null;
+}
 function currentSelDate() {
   const stored = sessionStorage.getItem('ae_sel_date');
   if (stored) return stored;
   const today = new Date(); today.setHours(0, 0, 0, 0);
+  const s = currentBookingService();
   for (let i = 0; i < 14; i++) {
     const d = addDays(today, i);
-    if (timeslots(d.getDay(), iso(d)).length) return iso(d);
+    if (timeslots(d.getDay(), iso(d), s && s.duration).length) return iso(d);
   }
   return iso(today);
 }
@@ -1721,7 +1729,7 @@ App.confirmBooking = async function (id) {
   if (!state.user) { toast('Please sign in to book an appointment.'); App.go('#/account'); return; }
   if (!s || !time) { toast('Please pick a time slot first.'); return; }
   if (!customerName) { toast('Please add your name before booking.'); return; }
-  if (slotState(date, time, fromISO(date).getDay()) !== 'available') { toast('That slot is no longer available — pick another.'); return; }
+  if (slotState(date, time, fromISO(date).getDay(), s.business) !== 'available') { toast('That slot is no longer available — pick another.'); return; }
   const appt = {
     id: uid(), serviceId: s.id, business: s.business, serviceName: s.name, category: s.category,
     price: s.price, duration: s.duration, date, time, customerName,
@@ -1818,15 +1826,15 @@ App.doSignUp = async function (e) {
   if (role === 'provider' && !category) { toast('Please choose a business category.'); return; }
   if (role === 'provider' && !serviceName) { toast('Please add your first service.'); return; }
   try {
-    await apiClient.signUp({ name, email, password, role, business, category });
-    state.user = { name, email, role };
+    const res = await apiClient.signUp({ name, email, password, role, business, category });
+    state.user = res.user;
     if (role === 'provider') {
       state.businessName = business;
       state.businessCategory = category;
       state.hours = defaultHours();
       await Promise.all([
         addDefaultService(fd, business, category),
-        apiClient.saveHours(state.hours).catch(() => {}),
+        apiClient.saveHours(state.hours),
       ]);
     }
     persist();
@@ -1844,7 +1852,7 @@ App.doLogin = async function (e) {
   const password = fd.get('password');
   try {
     const res = await apiClient.logIn({ email, password });
-    state.user = { name: res.user.name, email, role: res.user.role };
+    state.user = res.user;
     if (res.user.role === 'provider') {
       state.businessName = res.businessName || state.businessName;
       state.businessCategory = res.businessCategory || state.businessCategory;
@@ -2080,7 +2088,7 @@ App.onboardSetupBusiness = async function (e) {
     state.hours = defaultHours();
     await Promise.all([
       addDefaultService(fd, business, category),
-      apiClient.saveHours(state.hours).catch(() => {}),
+      apiClient.saveHours(state.hours),
     ]);
     persist();
     toast('Business set up. Now add more products and preferences.');

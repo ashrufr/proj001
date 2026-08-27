@@ -214,7 +214,19 @@ def _get_or_create_business(conn, name, owner_id=None, category=None):
     cursor = conn.cursor()
     row = cursor.execute("SELECT id FROM Businesses WHERE name = ?", (name,)).fetchone()
     if row:
-        return row[0]
+        bid = row[0]
+        # Fill in owner or category if they were previously missing.
+        if owner_id:
+            cursor.execute(
+                "UPDATE Businesses SET owner_id = ? WHERE id = ? AND owner_id IS NULL",
+                (owner_id, bid),
+            )
+        if category:
+            cursor.execute(
+                "UPDATE Businesses SET category = ? WHERE id = ? AND (category IS NULL OR category = '')",
+                (category, bid),
+            )
+        return bid
     bid = _new_id("b")
     cursor.execute(
         "INSERT INTO Businesses (id, name, owner_id, category) VALUES (?, ?, ?, ?)",
@@ -453,7 +465,9 @@ def _slot_error(conn, business, date, time, duration):
         return "that time is in the past"
 
     # 2. Working hours check
-    day_num = start_dt.weekday()  # 0 = Monday ... 6 = Sunday
+    # Hours are stored with JS getDay() keys (0=Sun,1=Mon..6=Sat).
+    # Python weekday() is 0=Mon..6=Sun — convert to getDay convention.
+    day_num = (start_dt.weekday() + 1) % 7
     span = _get_hours_raw(conn).get(str(day_num))
     if not span:
         return "the business is closed on that day"
@@ -577,20 +591,18 @@ def _create_session_token(conn, user_id):
 
 
 def _user_id_from_token(conn, token):
-    """Look up the user_id for a session token."""
+    """Look up the user_id for a session token (targeted by key prefix)."""
     if not token:
         return None
     cursor = conn.cursor()
     row = cursor.execute(
-        "SELECT value FROM Meta WHERE [key] LIKE 'session:%'"
-    ).fetchall()
-    for r in row:
-        val = r[0]
-        if ":" in val:
-            t, uid = val.split(":", 1)
-            if t == token:
-                return uid
-    return None
+        "SELECT value FROM Meta WHERE [key] = ?",
+        (f"session:{token[:16]}",),
+    ).fetchone()
+    if not row or ":" not in row[0]:
+        return None
+    t, uid = row[0].split(":", 1)
+    return uid if t == token else None
 
 
 def _meta(conn, key, default=None):

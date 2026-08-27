@@ -344,13 +344,16 @@ def api_signup():
         return jsonify({"error": str(exc)}), 409
     _set_user(user, token)
     if data.get("role") == "provider" and data.get("business"):
+        business = (data.get("business") or "").strip()
         category = (data.get("category") or "").strip()
         if not category:
             return jsonify({"error": "A business category is required."}), 400
-        db.set_user_business(user["id"], data["business"])
+        if category not in ('Haircuts & Styling', 'Colouring & Treatments', 'Barbershop', 'Nail & Beauty'):
+            return jsonify({"error": "Invalid business category."}), 400
+        db.set_user_business(user["id"], business)
         try:
             db.set_business_password(
-                data["business"], data.get("password", ""),
+                business, data.get("password", ""),
                 owner_id=user["id"], category=category,
             )
         except ValueError as exc:
