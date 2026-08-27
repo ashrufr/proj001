@@ -13,6 +13,7 @@ import os
 import re
 import secrets
 import uuid
+from datetime import datetime, timedelta
 
 import pyodbc
 
@@ -340,8 +341,56 @@ def get_appointment(conn, appointment_id):
     return _appt_to_dict(_row_to_dict(cursor, row)) if row else None
 
 
+def _slot_error(conn, business, date, time, duration):
+    """Return an error string if the slot can't be booked, else None.
+
+    Validates that the requested date/time falls within the business's
+    working hours, is not in the past, and does not collide with an
+    existing booking for that business.
+    """
+    # 1. Past date/time check
+    try:
+        start_dt = datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M")
+    except ValueError:
+        return "invalid date or time"
+    if start_dt < datetime.now() - timedelta(minutes=1):
+        return "that time is in the past"
+
+    # 2. Working hours check
+    day_num = start_dt.weekday()  # 0 = Monday ... 6 = Sunday
+    span = _get_hours_raw(conn).get(str(day_num))
+    if not span:
+        return "the business is closed on that day"
+    open_min = int(span["open"][:2]) * 60 + int(span["open"][3:])
+    close_min = int(span["close"][:2]) * 60 + int(span["close"][3:])
+    start_min = start_dt.hour * 60 + start_dt.minute
+    if start_min < open_min or start_min + duration > close_min:
+        return "that time is outside working hours"
+
+    # 3. Collision / overlap with existing bookings
+    cursor = conn.cursor()
+    rows = cursor.execute(
+        "SELECT time, duration FROM Appointments "
+        "WHERE business = ? AND date = ? AND status <> 'cancelled'",
+        (business, date),
+    ).fetchall()
+    for r in rows:
+        t, dur = r[0], (r[1] or 0)
+        existing_min = int(t[:2]) * 60 + int(t[3:])
+        if not (start_min + duration <= existing_min or start_min >= existing_min + dur):
+            return "that slot is already booked"
+    return None
+
+
 @_with_conn
 def create_appointment(conn, data):
+    business = data.get("business", "")
+    date = data.get("date", "")
+    time = data.get("time", "")
+    duration = int(data.get("duration", 30))
+    error = _slot_error(conn, business, date, time, duration)
+    if error:
+        raise ValueError(error)
     aid = data.get("id") or _new_id("a")
     _insert_appointment(conn, aid, data)
     cursor = conn.cursor()

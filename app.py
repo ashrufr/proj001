@@ -93,6 +93,18 @@ def _owns_appointment(user, appt):
     return False
 
 
+def _require_provider():
+    """Return (user, business) if the requester is a signed-in provider that
+    has a linked business, else (None, None)."""
+    user = _current_user()
+    if not user or user.get("role") != "provider":
+        return None, None
+    business = db.get_user_business(user["id"])
+    if not business:
+        return None, None
+    return user, business
+
+
 # ---------------------------------------------------------------------------
 # static files
 # ---------------------------------------------------------------------------
@@ -126,7 +138,12 @@ def api_list_services():
 
 @app.route("/api/services", methods=["POST"])
 def api_create_service():
-    return jsonify(db.create_service(request.get_json())), 201
+    user, business = _require_provider()
+    if not user:
+        return jsonify({"error": "only signed-in business owners can create services"}), 403
+    data = request.get_json() or {}
+    data["business"] = business
+    return jsonify(db.create_service(data)), 201
 
 
 @app.route("/api/services/<service_id>", methods=["GET"])
@@ -137,12 +154,25 @@ def api_get_service(service_id):
 
 @app.route("/api/services/<service_id>", methods=["PUT"])
 def api_update_service(service_id):
-    row = db.update_service(service_id, request.get_json())
-    return jsonify(row) if row else (jsonify({"error": "not found"}), 404)
+    user, business = _require_provider()
+    if not user:
+        return jsonify({"error": "only signed-in business owners can update services"}), 403
+    row = db.get_service(service_id)
+    if not row or row.get("business") != business:
+        return jsonify({"error": "not found"}), 404
+    data = request.get_json() or {}
+    data["business"] = business
+    return jsonify(db.update_service(service_id, data))
 
 
 @app.route("/api/services/<service_id>", methods=["DELETE"])
 def api_delete_service(service_id):
+    user, business = _require_provider()
+    if not user:
+        return jsonify({"error": "only signed-in business owners can delete services"}), 403
+    row = db.get_service(service_id)
+    if not row or row.get("business") != business:
+        return jsonify({"error": "not found"}), 404
     db.delete_service(service_id)
     return jsonify({"ok": True})
 
@@ -170,7 +200,11 @@ def api_create_appointment():
         return jsonify({"error": "sign in to book an appointment"}), 401
     data = request.get_json() or {}
     data["customerId"] = user["id"]
-    return jsonify(db.create_appointment(data)), 201
+    try:
+        appt = db.create_appointment(data)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 409
+    return jsonify(appt), 201
 
 
 @app.route("/api/appointments/<appointment_id>", methods=["GET"])
@@ -226,6 +260,9 @@ def api_get_hours():
 
 @app.route("/api/hours", methods=["PUT"])
 def api_save_hours():
+    user, _business = _require_provider()
+    if not user:
+        return jsonify({"error": "only signed-in business owners can set working hours"}), 403
     db.replace_hours(request.get_json().get("hours", {}))
     return jsonify({"ok": True})
 
@@ -235,7 +272,10 @@ def api_save_hours():
 # ---------------------------------------------------------------------------
 @app.route("/api/business-name", methods=["PUT"])
 def api_save_business_name():
-    db.set_business_name(request.get_json().get("name", "My Business"))
+    user, business = _require_provider()
+    if not user:
+        return jsonify({"error": "only signed-in business owners can update the business"}), 403
+    db.set_business_name(business)
     return jsonify({"ok": True})
 
 
@@ -245,6 +285,8 @@ def api_business_setup():
     user = _current_user()
     if not user:
         return jsonify({"error": "not signed in"}), 401
+    if user.get("role") != "provider":
+        return jsonify({"error": "only business owners can set up a business"}), 403
     data = request.get_json() or {}
     business = (data.get("business") or "").strip()
     if not business:

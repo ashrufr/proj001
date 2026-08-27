@@ -271,7 +271,7 @@ function footerHtml() {
       </div>
     </div>
     <div class="container" style="margin-top:32px;border-top:1px solid var(--stone-200);padding-top:20px">
-      <p style="margin:0">© ${new Date().getFullYear()} ARX Intelligence. All rights reserved. <span class="version">v1.005</span></p>
+      <p style="margin:0">© ${new Date().getFullYear()} ARX Intelligence. All rights reserved. <span class="version">v1.007</span></p>
     </div>
   </footer>`;
 }
@@ -1586,7 +1586,7 @@ function currentSelDate() {
   return iso(today);
 }
 
-App.confirmBooking = function (id) {
+App.confirmBooking = async function (id) {
   const s = byId(id);
   const date = currentSelDate();
   const time = sessionStorage.getItem('ae_sel_time');
@@ -1602,9 +1602,15 @@ App.confirmBooking = function (id) {
     price: s.price, duration: s.duration, date, time, customerName,
     customerId: state.user.id, notes, status: 'pending', createdAt: Date.now(),
   };
+  try {
+    await apiClient.createAppointment(appt);
+  } catch (err) {
+    render();
+    toast('Sorry, that slot is no longer available. Please pick another time.');
+    return;
+  }
   state.appointments.push(appt);
   persist();
-  syncToServer(apiClient.createAppointment(appt));
   sessionStorage.setItem('ae_last_booking', JSON.stringify(appt));
   sessionStorage.setItem('ae_sel_time', '');
   App.go('#/confirmed');
