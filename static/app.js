@@ -53,9 +53,7 @@ const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Mon..Sun
 function defaultHours() {
   const h = {};
   DAY_ORDER.forEach(d => {
-    if (d === 0) h[d] = null;
-    else if (d === 6) h[d] = { open: '10:00', close: '14:00' };
-    else h[d] = { open: '08:00', close: '17:00' };
+    h[d] = (d >= 1 && d <= 5) ? { open: '08:00', close: '17:00' } : null;
   });
   return h;
 }
@@ -1810,7 +1808,11 @@ App.doSignUp = async function (e) {
     if (role === 'provider') {
       state.businessName = business;
       state.businessCategory = category;
-      await addDefaultService(fd, business, category);
+      state.hours = defaultHours();
+      await Promise.all([
+        addDefaultService(fd, business, category),
+        apiClient.saveHours(state.hours).catch(() => {}),
+      ]);
     }
     persist();
     toast('Welcome to HairNet, ' + name.split(' ')[0] + '!');
@@ -2060,7 +2062,11 @@ App.onboardSetupBusiness = async function (e) {
     state.businessName = res.business || business;
     state.businessCategory = res.category || category;
     state.user = Object.assign({}, res.user || {}, { name });
-    await addDefaultService(fd, business, category);
+    state.hours = defaultHours();
+    await Promise.all([
+      addDefaultService(fd, business, category),
+      apiClient.saveHours(state.hours).catch(() => {}),
+    ]);
     persist();
     toast('Business set up. Now add more products and preferences.');
     App.go('#/provider');
@@ -2183,9 +2189,34 @@ async function pollAppointments() {
   }
 }
 
+/* Keep the client-facing catalog in sync so clients always see ALL current
+   businesses and services (plus working hours) without a full reload. */
+let lastCatalogJson = '';
+async function pollCatalog() {
+  if (document.visibilityState === 'hidden') return;
+  try {
+    const remote = await apiClient.bootstrap();
+    if (!remote || !Array.isArray(remote.services)) return;
+    const hours = {};
+    for (let i = 0; i < 7; i++) hours[i] = (remote.hours && (remote.hours[String(i)] || remote.hours[i])) || null;
+    const next = JSON.stringify({ s: remote.services || [], b: remote.businesses || [], h: hours });
+    if (next === lastCatalogJson) return;
+    lastCatalogJson = next;
+    state.services = remote.services || [];
+    state.businesses = remote.businesses || [];
+    state.hours = hours;
+    persist();
+    const { view } = parseHash();
+    if (view === 'browse' || view === 'service') render();
+  } catch (err) {
+    /* server unavailable — keep local data */
+  }
+}
+
 function init() {
   window.addEventListener('hashchange', render);
   loadInitialState();
   setInterval(pollAppointments, POLL_MS);
+  setInterval(pollCatalog, POLL_MS);
 }
 init();

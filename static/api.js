@@ -33,6 +33,7 @@ const API = (() => {
     appointments: () => req('GET', '/api/appointments'),
 
     saveHours: (hours) => req('PUT', '/api/hours', { hours }),
+    getHours: () => req('GET', '/api/hours'),
     saveBusinessName: (name) => req('PUT', '/api/business-name', { name }),
     businessSetup: (d) => req('POST', '/api/business/setup', d),
 
