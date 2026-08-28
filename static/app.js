@@ -1239,7 +1239,7 @@ function viewBusinessAuth() {
     return viewBusinessResetPasswordForm();
   }
 
-  const isCreate = subHash !== 'signin';
+  const isCreate = subHash === 'create';
   const heading = isCreate ? 'List your business on HairNet' : 'Sign in to your business';
   const sub = isCreate
     ? 'Create a free business account — publish services, set your hours and manage bookings from one dashboard.'
@@ -1796,9 +1796,9 @@ App.calNext = function () { calMove(1); };
 App.chooseRole = function (role) {
   if (role === 'provider') { App.go('#/business'); return; }
   sessionStorage.setItem('ae_role', role);
-  renderAccountBody(role, 'create');
+  renderAccountBody(role, 'login');
 };
-App.signIn = function (role, mode) { renderAccountBody(role, mode || 'create'); };
+App.signIn = function (role, mode) { renderAccountBody(role, mode || 'login'); };
 App.setAuthMode = function (role, mode) { renderAccountBody(role, mode); };
 App.businessSignIn = function () {
   document.getElementById('app').innerHTML = navHtml() + '<main>' + businessSignInForm() + '</main>' + footerHtml();
