@@ -327,7 +327,7 @@ function footerHtml() {
       </div>
     </div>
     <div class="container" style="margin-top:32px;border-top:1px solid var(--stone-200);padding-top:20px">
-      <p style="margin:0">© ${new Date().getFullYear()} ARX Intelligence. All rights reserved. <span class="version">v1.008</span></p>
+      <p style="margin:0">© ${new Date().getFullYear()} ARX Intelligence. All rights reserved. <span class="version">v1.009</span></p>
     </div>
   </footer>`;
 }
