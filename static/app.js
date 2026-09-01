@@ -30,6 +30,7 @@ const I = {
   sun: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
   logOut: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></svg>',
   chevRight: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>',
+  map: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>',
   star: '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/></svg>',
 };
 
@@ -1531,7 +1532,7 @@ function apptCard(a, cancellable) {
 function myAppointments() { return state.appointments.filter(a => a.business === state.businessName); }
 
 function viewProvider(tab) {
-  const valid = ['overview', 'appointments', 'services', 'hours'];
+  const valid = ['overview', 'appointments', 'services', 'hours', 'address'];
   const cur = valid.includes(tab) ? tab : 'overview';
 
   const tabs = [
@@ -1539,6 +1540,7 @@ function viewProvider(tab) {
     { id: 'appointments', label: 'Appointments', icon: I.calendar },
     { id: 'services', label: 'Services', icon: I.layers },
     { id: 'hours', label: 'Working hours', icon: I.clock },
+    { id: 'address', label: 'Business address', icon: I.map },
   ].map(t => `<button class="tab ${cur === t.id ? 'active' : ''}" onclick="App.go('#/provider/${t.id}')">${t.icon} ${t.label}</button>`).join('');
 
   const body = {
@@ -1546,6 +1548,7 @@ function viewProvider(tab) {
     appointments: dashAppointments(),
     services: dashServices(),
     hours: dashHours(),
+    address: dashAddress(),
   }[cur];
 
   return `
@@ -1752,6 +1755,35 @@ function dashHours() {
     <div class="flex justify-between items-center mt-3">
       <p class="sm">Changes apply to new bookings immediately.</p>
       <button class="btn btn-navy" onclick="App.saveHours()">${I.check} Save hours</button>
+    </div>`;
+}
+
+function dashAddress() {
+  const biz = (state.businesses || []).find(b => b.name === state.businessName) || {};
+  return `
+    <div class="row-head">
+      <div><h2>Business address</h2><p>Set your business location so customers can get directions via Google Maps.</p></div>
+    </div>
+    <div class="card" style="padding:24px;max-width:480px">
+      <form onsubmit="App.saveAddress(event)">
+        <div class="field">
+          <label for="dash-street_address">Street address</label>
+          <input id="dash-street_address" name="street_address" type="text" placeholder="123 Main St" value="${esc(biz.street_address || '')}" />
+        </div>
+        <div style="display:flex;gap:12px">
+          <div class="field" style="flex:1">
+            <label for="dash-city">City</label>
+            <input id="dash-city" name="city" type="text" placeholder="City" value="${esc(biz.city || '')}" />
+          </div>
+          <div class="field" style="flex:0 0 120px">
+            <label for="dash-zip_code">ZIP code</label>
+            <input id="dash-zip_code" name="zip_code" type="text" placeholder="12345" value="${esc(biz.zip_code || '')}" />
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:18px">
+          <button class="btn btn-navy" type="submit">${I.check} Save address</button>
+        </div>
+      </form>
     </div>`;
 }
 
@@ -2293,6 +2325,27 @@ App.saveHours = function () {
   syncToServer(apiClient.saveHours(state.hours));
   toast('Working hours saved.');
   render();
+};
+
+App.saveAddress = async function (e) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const street_address = (fd.get('street_address') || '').trim();
+  const city = (fd.get('city') || '').trim();
+  const zip_code = (fd.get('zip_code') || '').trim();
+  try {
+    await apiClient.saveBusinessAddress({ street_address, city, zip_code });
+    const biz = (state.businesses || []).find(b => b.name === state.businessName);
+    if (biz) {
+      biz.street_address = street_address;
+      biz.city = city;
+      biz.zip_code = zip_code;
+    }
+    persist();
+    toast('Business address saved.');
+  } catch (err) {
+    toast('Could not save address: ' + err.message);
+  }
 };
 
 App.closeModal = closeModal;

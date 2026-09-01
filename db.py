@@ -1023,6 +1023,21 @@ def set_user_business_name(conn, user_id, business):
 
 
 @_with_conn
+def update_business_address(conn, business, street_address=None, city=None, zip_code=None):
+    """Update the address fields for a business."""
+    cursor = conn.cursor()
+    row = cursor.execute("SELECT id FROM Businesses WHERE name = ?", (business,)).fetchone()
+    if not row:
+        return False
+    bid = row[0]
+    cursor.execute(
+        "UPDATE Businesses SET street_address = ?, city = ?, zip_code = ? WHERE id = ?",
+        (street_address or "", city or "", zip_code or "", bid),
+    )
+    return True
+
+
+@_with_conn
 def link_provider_to_business(conn, user_id, name, business, category=None, street_address=None, city=None, zip_code=None):
     """Update a provider's display name and link them to a business (creating it if needed)."""
     cursor = conn.cursor()

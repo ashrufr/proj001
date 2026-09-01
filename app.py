@@ -285,6 +285,19 @@ def api_save_business_name():
     return jsonify({"ok": True})
 
 
+@app.route("/api/business-address", methods=["PUT"])
+def api_save_business_address():
+    user, business = _require_provider()
+    if not user:
+        return jsonify({"error": "only signed-in business owners can update the address"}), 403
+    data = request.get_json() or {}
+    street_address = (data.get("street_address") or "").strip()
+    city = (data.get("city") or "").strip()
+    zip_code = (data.get("zip_code") or "").strip()
+    db.update_business_address(business, street_address=street_address, city=city, zip_code=zip_code)
+    return jsonify({"ok": True})
+
+
 @app.route("/api/business/setup", methods=["POST"])
 def api_business_setup():
     """Link the provider to a business and update their display name.
