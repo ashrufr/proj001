@@ -1500,7 +1500,7 @@ function apptCard(a, cancellable) {
   if (address) actions.push(`<a class="btn btn-outline btn-sm" href="${mapsDirectionsUrl(address)}" target="_blank" rel="noopener">${I.arrowRight.replace('16"','14"')} Directions</a>`);
   return `
   <div class="appt-card card">
-    <div class="appt-card-header">
+    <div class="appt-card-top">
       <div style="display:flex;align-items:center;gap:12px;min-width:0">
         <span class="avatar-logo" style="background:${cs.grad}">${cs.icon.replace('20"','22"')}</span>
         <div style="min-width:0">
@@ -1518,12 +1518,12 @@ function apptCard(a, cancellable) {
         <div class="sm">${minutesLabel(a.duration)}</div>
       </div>
     </div>
-    <div class="appt-card-meta">
+    <div class="appt-card-info">
       ${I.calendar.replace('18"','13"')} ${fmtLong(a.date, a.time)}
       ${a.customerName ? `<span style="color:var(--stone-300)">·</span> ${I.user.replace('18"','12"')} ${esc(a.customerName)}` : ''}
+      ${a.notes ? `<div class="appt-card-notes">"${esc(a.notes)}"</div>` : ''}
     </div>
-    ${a.notes ? `<div class="appt-card-notes">"${esc(a.notes)}"</div>` : ''}
-    ${actions.length ? `<div class="appt-card-actions">${actions.join('')}</div>` : ''}
+    ${actions.length ? `<div class="appt-card-bottom">${actions.join('')}</div>` : ''}
   </div>`;
 }
 
