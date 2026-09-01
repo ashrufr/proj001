@@ -315,10 +315,12 @@ def api_business_setup():
         return jsonify({"error": "Business name is required."}), 400
     name = (data.get("name") or user.get("name") or "").strip()
     category = (data.get("category") or "").strip()
-    address = (data.get("address") or "").strip()
+    street_address = (data.get("street_address") or "").strip()
+    city = (data.get("city") or "").strip()
+    zip_code = (data.get("zip_code") or "").strip()
     if not category:
         return jsonify({"error": "A business category is required."}), 400
-    linked = db.link_provider_to_business(user["id"], name, business, category=category, address=address)
+    linked = db.link_provider_to_business(user["id"], name, business, category=category, street_address=street_address, city=city, zip_code=zip_code)
     return jsonify({
         "ok": True,
         "business": linked,
@@ -350,7 +352,9 @@ def api_signup():
     if data.get("role") == "provider" and data.get("business"):
         business = (data.get("business") or "").strip()
         category = (data.get("category") or "").strip()
-        address = (data.get("address") or "").strip()
+        street_address = (data.get("street_address") or "").strip()
+        city = (data.get("city") or "").strip()
+        zip_code = (data.get("zip_code") or "").strip()
         if not category:
             return jsonify({"error": "A business category is required."}), 400
         if category not in ('Haircuts & Styling', 'Colouring & Treatments', 'Barbershop', 'Nail & Beauty'):
@@ -359,7 +363,8 @@ def api_signup():
         try:
             db.set_business_password(
                 business, data.get("password", ""),
-                owner_id=user["id"], category=category, address=address,
+                owner_id=user["id"], category=category,
+                street_address=street_address, city=city, zip_code=zip_code,
             )
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 400

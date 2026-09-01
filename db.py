@@ -106,7 +106,9 @@ CREATE TABLE Businesses (
   password_hash NVARCHAR(400) NOT NULL DEFAULT '',
   owner_id NVARCHAR(20) NULL,
   category NVARCHAR(100) NOT NULL DEFAULT '',
-  address NVARCHAR(500) NOT NULL DEFAULT '',
+  street_address NVARCHAR(300) NOT NULL DEFAULT '',
+  city NVARCHAR(100) NOT NULL DEFAULT '',
+  zip_code NVARCHAR(20) NOT NULL DEFAULT '',
   created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
 );
 
@@ -116,8 +118,14 @@ ALTER TABLE Businesses ADD owner_id NVARCHAR(20) NULL;
 IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Businesses') AND name = 'category')
 ALTER TABLE Businesses ADD category NVARCHAR(100) NOT NULL DEFAULT '';
 
-IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Businesses') AND name = 'address')
-ALTER TABLE Businesses ADD address NVARCHAR(500) NOT NULL DEFAULT '';
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Businesses') AND name = 'street_address')
+ALTER TABLE Businesses ADD street_address NVARCHAR(300) NOT NULL DEFAULT '';
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Businesses') AND name = 'city')
+ALTER TABLE Businesses ADD city NVARCHAR(100) NOT NULL DEFAULT '';
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Businesses') AND name = 'zip_code')
+ALTER TABLE Businesses ADD zip_code NVARCHAR(20) NOT NULL DEFAULT '';
 
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Users')
 CREATE TABLE Users (
@@ -214,12 +222,12 @@ def init_db():
 # ---------------------------------------------------------------------------
 # businesses
 # ---------------------------------------------------------------------------
-def _get_or_create_business(conn, name, owner_id=None, category=None, address=None):
+def _get_or_create_business(conn, name, owner_id=None, category=None, street_address=None, city=None, zip_code=None):
     cursor = conn.cursor()
     row = cursor.execute("SELECT id FROM Businesses WHERE name = ?", (name,)).fetchone()
     if row:
         bid = row[0]
-        # Fill in owner, category or address if they were previously missing.
+        # Fill in owner, category or address fields if they were previously missing.
         if owner_id:
             cursor.execute(
                 "UPDATE Businesses SET owner_id = ? WHERE id = ? AND owner_id IS NULL",
@@ -230,16 +238,26 @@ def _get_or_create_business(conn, name, owner_id=None, category=None, address=No
                 "UPDATE Businesses SET category = ? WHERE id = ? AND (category IS NULL OR category = '')",
                 (category, bid),
             )
-        if address:
+        if street_address:
             cursor.execute(
-                "UPDATE Businesses SET address = ? WHERE id = ? AND (address IS NULL OR address = '')",
-                (address, bid),
+                "UPDATE Businesses SET street_address = ? WHERE id = ? AND (street_address IS NULL OR street_address = '')",
+                (street_address, bid),
+            )
+        if city:
+            cursor.execute(
+                "UPDATE Businesses SET city = ? WHERE id = ? AND (city IS NULL OR city = '')",
+                (city, bid),
+            )
+        if zip_code:
+            cursor.execute(
+                "UPDATE Businesses SET zip_code = ? WHERE id = ? AND (zip_code IS NULL OR zip_code = '')",
+                (zip_code, bid),
             )
         return bid
     bid = _new_id("b")
     cursor.execute(
-        "INSERT INTO Businesses (id, name, owner_id, category, address) VALUES (?, ?, ?, ?, ?)",
-        (bid, name, owner_id, category or "", address or ""),
+        "INSERT INTO Businesses (id, name, owner_id, category, street_address, city, zip_code) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (bid, name, owner_id, category or "", street_address or "", city or "", zip_code or ""),
     )
     return bid
 
@@ -997,10 +1015,10 @@ def set_user_business_name(conn, user_id, business):
 
 
 @_with_conn
-def link_provider_to_business(conn, user_id, name, business, category=None, address=None):
+def link_provider_to_business(conn, user_id, name, business, category=None, street_address=None, city=None, zip_code=None):
     """Update a provider's display name and link them to a business (creating it if needed)."""
     cursor = conn.cursor()
-    _get_or_create_business(conn, business, owner_id=user_id, category=category, address=address)
+    _get_or_create_business(conn, business, owner_id=user_id, category=category, street_address=street_address, city=city, zip_code=zip_code)
     _set_user_business_conn(conn, user_id, business)
     if name:
         cursor.execute("UPDATE Users SET name = ? WHERE id = ?", (name, user_id))
@@ -1011,10 +1029,10 @@ def link_provider_to_business(conn, user_id, name, business, category=None, addr
 # business login passwords
 # ---------------------------------------------------------------------------
 @_with_conn
-def set_business_password(conn, name, password, owner_id=None, category=None, address=None):
+def set_business_password(conn, name, password, owner_id=None, category=None, street_address=None, city=None, zip_code=None):
     if len(str(password or "")) < 8:
         raise ValueError("password must be at least 8 characters")
-    business_id = _get_or_create_business(conn, name, owner_id=owner_id, category=category, address=address)
+    business_id = _get_or_create_business(conn, name, owner_id=owner_id, category=category, street_address=street_address, city=city, zip_code=zip_code)
     conn.cursor().execute(
         "UPDATE Businesses SET password_hash = ? WHERE id = ?",
         (hash_password(password), business_id),

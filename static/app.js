@@ -909,10 +909,20 @@ function viewOnboard() {
           <div class="hint">Pick the category that best describes your business.</div>
         </div>
         <div class="field">
-          <label for="obz-address">Business address</label>
-          <input id="obz-address" name="address" type="text" placeholder="123 Main St, City, State ZIP" />
-          <div class="hint">For Google Maps directions on your booking page.</div>
+          <label for="obz-street_address">Street address</label>
+          <input id="obz-street_address" name="street_address" type="text" placeholder="123 Main St" />
         </div>
+        <div style="display:flex;gap:12px">
+          <div class="field" style="flex:1">
+            <label for="obz-city">City</label>
+            <input id="obz-city" name="city" type="text" placeholder="City" />
+          </div>
+          <div class="field" style="flex:0 0 120px">
+            <label for="obz-zip_code">ZIP code</label>
+            <input id="obz-zip_code" name="zip_code" type="text" placeholder="12345" />
+          </div>
+        </div>
+        <div class="hint" style="margin-top:-10px;margin-bottom:14px">For Google Maps directions on your booking page.</div>
         ${defaultServiceFields()}
         <button class="btn btn-primary btn-lg btn-block" type="submit">Continue to dashboard ${I.arrowRight}</button>
       </form>
@@ -1279,27 +1289,74 @@ function viewBusinessAuth() {
       <form onsubmit="${isCreate ? 'App.doSignUp(event)' : 'App.doLogin(event)'}">
         <input type="hidden" name="role" value="provider">
         ${isCreate ? `
-        <div class="field">
-          <label for="name">Your full name</label>
-          <input id="name" name="name" type="text" placeholder="Alex Morgan" required />
+        <div class="card" style="padding:22px;margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+            <span style="width:32px;height:32px;border-radius:10px;background:var(--terracotta-soft);color:var(--terracotta);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800">1</span>
+            <h3 style="font-size:15px;font-weight:700;color:var(--stone-900);margin:0">Business details</h3>
+          </div>
+          <div class="field">
+            <label for="name">Your full name</label>
+            <input id="name" name="name" type="text" placeholder="Alex Morgan" required />
+          </div>
+          <div class="field">
+            <label for="business">Business name</label>
+            <input id="business" name="business" type="text" placeholder="e.g. Riverside Barbershop" required />
+            <div class="hint">Shown to customers on your booking page.</div>
+          </div>
+          <div class="field">
+            <label for="category">Business category</label>
+            <select id="category" name="category" required>
+              ${categoryOptions()}
+            </select>
+          </div>
         </div>
-        <div class="field">
-          <label for="business">Business name</label>
-          <input id="business" name="business" type="text" placeholder="e.g. Riverside Barbershop" required />
-          <div class="hint">Shown to customers on your booking page.</div>
+        <div class="card" style="padding:22px;margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+            <span style="width:32px;height:32px;border-radius:10px;background:var(--sage-soft);color:var(--sage-deep);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800">2</span>
+            <h3 style="font-size:15px;font-weight:700;color:var(--stone-900);margin:0">Address details</h3>
+          </div>
+          <div class="field">
+            <label for="street_address">Street address</label>
+            <input id="street_address" name="street_address" type="text" placeholder="123 Main St" />
+          </div>
+          <div style="display:flex;gap:12px">
+            <div class="field" style="flex:1">
+              <label for="city">City</label>
+              <input id="city" name="city" type="text" placeholder="City" />
+            </div>
+            <div class="field" style="flex:0 0 120px">
+              <label for="zip_code">ZIP code</label>
+              <input id="zip_code" name="zip_code" type="text" placeholder="12345" />
+            </div>
+          </div>
+          <div class="hint" style="margin-top:-10px">For Google Maps directions on your booking page.</div>
         </div>
-        <div class="field">
-          <label for="category">Business category</label>
-          <select id="category" name="category" required>
-            ${categoryOptions()}
-          </select>
+        <div class="card" style="padding:22px;margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+            <span style="width:32px;height:32px;border-radius:10px;background:#F0EDFB;color:#6D5ACF;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800">3</span>
+            <h3 style="font-size:15px;font-weight:700;color:var(--stone-900);margin:0">First service</h3>
+          </div>
+          ${defaultServiceFields()}
         </div>
-        <div class="field">
-          <label for="address">Business address</label>
-          <input id="address" name="address" type="text" placeholder="123 Main St, City, State ZIP" />
-          <div class="hint">For Google Maps directions on your booking page.</div>
-        </div>
-        ${defaultServiceFields()}` : ''}
+        <div class="card" style="padding:22px;margin-bottom:18px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+            <span style="width:32px;height:32px;border-radius:10px;background:var(--cream);color:var(--stone-700);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800">4</span>
+            <h3 style="font-size:15px;font-weight:700;color:var(--stone-900);margin:0">Account details</h3>
+          </div>
+          <div class="field">
+            <label for="email">Work email</label>
+            <input id="email" name="email" type="email" placeholder="you@yourbusiness.com" required />
+          </div>
+          <div class="field">
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" minlength="8" placeholder="At least 8 characters" required />
+          </div>
+          <div class="field">
+            <label for="confirm">Confirm password</label>
+            <input id="confirm" name="confirm" type="password" minlength="8" placeholder="Repeat your password" required />
+          </div>
+        </div>` : ''}
+        ${!isCreate ? `
         <div class="field">
           <label for="email">Work email</label>
           <input id="email" name="email" type="email" placeholder="you@yourbusiness.com" required />
@@ -1307,12 +1364,7 @@ function viewBusinessAuth() {
         <div class="field">
           <label for="password">Password</label>
           <input id="password" name="password" type="password" minlength="8" placeholder="At least 8 characters" required />
-          ${!isCreate ? '<div class="hint"><a href="#" onclick="App.go(\'#/business/forgot-password\');return false;">Forgot password?</a></div>' : ''}
-        </div>
-        ${isCreate ? `
-        <div class="field">
-          <label for="confirm">Confirm password</label>
-          <input id="confirm" name="confirm" type="password" minlength="8" placeholder="Repeat your password" required />
+          <div class="hint"><a href="#" onclick="App.go(\'#/business/forgot-password\');return false;">Forgot password?</a></div>
         </div>` : ''}
         <button class="btn btn-primary btn-lg btn-block" type="submit">${isCreate ? 'Create business account' : 'Sign in to dashboard'}</button>
       </form>
@@ -1829,7 +1881,9 @@ App.doSignUp = async function (e) {
   const role = fd.get('role');
   const business = fd.get('business') ? fd.get('business').trim() : '';
   const category = (fd.get('category') || '').trim();
-  const address = (fd.get('address') || '').trim();
+  const street_address = (fd.get('street_address') || '').trim();
+  const city = (fd.get('city') || '').trim();
+  const zip_code = (fd.get('zip_code') || '').trim();
   const serviceName = (fd.get('serviceName') || '').trim();
   const password = validatePassword(fd);
   if (password === null) return;
@@ -1839,7 +1893,7 @@ App.doSignUp = async function (e) {
   const btn = e.target.querySelector('button[type="submit"]');
   if (btn) { btn.disabled = true; btn.textContent = 'Creating account...'; }
   try {
-    const res = await apiClient.signUp({ name, email, password, role, business, category, address });
+    const res = await apiClient.signUp({ name, email, password, role, business, category, street_address, city, zip_code });
     state.user = res.user;
     if (role === 'provider') {
       state.businessName = business;
@@ -2098,13 +2152,15 @@ App.onboardSetupBusiness = async function (e) {
   const name = fd.get('name').trim();
   const business = fd.get('business').trim();
   const category = (fd.get('category') || '').trim();
-  const address = (fd.get('address') || '').trim();
+  const street_address = (fd.get('street_address') || '').trim();
+  const city = (fd.get('city') || '').trim();
+  const zip_code = (fd.get('zip_code') || '').trim();
   const serviceName = (fd.get('serviceName') || '').trim();
   if (!business) { toast('Please enter your business name.'); return; }
   if (!category) { toast('Please choose a business category.'); return; }
   if (!serviceName) { toast('Please add your first service.'); return; }
   try {
-    const res = await apiClient.businessSetup({ name, business, category, address });
+    const res = await apiClient.businessSetup({ name, business, category, street_address, city, zip_code });
     sessionStorage.removeItem('ae_pending_google_name');
     state.businessName = res.business || business;
     state.businessCategory = res.category || category;
