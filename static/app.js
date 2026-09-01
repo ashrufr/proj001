@@ -1496,8 +1496,8 @@ function apptCard(a, cancellable) {
   const stCls = { pending: 'status-pending', confirmed: 'status-confirmed', cancelled: 'status-cancelled', completed: 'status-completed' }[a.status] || 'status-pending';
   const address = getBusinessAddress(a.business);
   const actions = [];
-  if (address) actions.push(`<a class="btn btn-outline btn-sm" href="${mapsDirectionsUrl(address)}" target="_blank" rel="noopener">${I.arrowRight.replace('16"','14"')} Directions</a>`);
   if (cancellable && a.status !== 'cancelled') actions.push(`<button class="btn btn-outline btn-sm" onclick="App.cancelAppt('${a.id}')">Cancel</button>`);
+  if (address) actions.push(`<a class="btn btn-outline btn-sm" href="${mapsDirectionsUrl(address)}" target="_blank" rel="noopener">${I.arrowRight.replace('16"','14"')} Directions</a>`);
   return `
   <div class="appt-card card">
     <span class="avatar-logo" style="background:${cs.grad}">${cs.icon.replace('20"','22"')}</span>
@@ -1513,7 +1513,7 @@ function apptCard(a, cancellable) {
       </div>
       ${a.customerName ? `<div class="sm" style="margin-top:4px;font-weight:600;color:var(--stone-700)">${I.user.replace('18"','12"')} ${esc(a.customerName)}</div>` : ''}
       ${a.notes ? `<p class="sm" style="margin-top:6px">"${esc(a.notes)}"</p>` : ''}
-      ${actions.length ? `<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">${actions.join('')}</div>` : ''}
+      ${actions.length ? `<div style="display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-top:10px">${actions.join('')}</div>` : ''}
     </div>
     <div style="text-align:right">
       <div class="price">${money(a.price)}</div>
