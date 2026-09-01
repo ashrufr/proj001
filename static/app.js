@@ -277,7 +277,7 @@ function navHtml() {
   if (!u || u.role === 'customer') links.push('For businesses');
   const linkPath = {
     'Browse services': '#/browse', 'Pricing': '#/pricing', 'My appointments': '#/appointments',
-    'Dashboard': '#/provider', 'For businesses': '#/business',
+    'Dashboard': '#/provider', 'For businesses': '#/business/create',
   };
   return `
   <header class="nav">
@@ -1247,7 +1247,7 @@ function viewBusinessAuth() {
   const tabs = `
     <div class="tabs" style="margin-bottom:20px">
       <button class="tab ${!isCreate ? 'active' : ''}" onclick="App.go('#/business/signin')">Sign in</button>
-      <button class="tab ${isCreate ? 'active' : ''}" onclick="App.go('#/business')">Create account</button>
+      <button class="tab ${isCreate ? 'active' : ''}" onclick="App.go('#/business/create')">Create account</button>
     </div>`;
   const googleDivider = `
       <button class="btn btn-outline btn-lg btn-block" type="button" onclick="App.googleSignIn('provider')" style="gap:10px;margin-bottom:18px">
@@ -1794,7 +1794,7 @@ App.calNext = function () { calMove(1); };
 
 /* account */
 App.chooseRole = function (role) {
-  if (role === 'provider') { App.go('#/business'); return; }
+  if (role === 'provider') { App.go('#/business/create'); return; }
   sessionStorage.setItem('ae_role', role);
   renderAccountBody(role, 'login');
 };
