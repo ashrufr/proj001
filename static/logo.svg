@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="domeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E07A5F"/>
+      <stop offset="100%" stop-color="#D06346"/>
+    </linearGradient>
+    <linearGradient id="nodeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#81B29A"/>
+      <stop offset="100%" stop-color="#3D6A55"/>
+    </linearGradient>
+    <clipPath id="domeClip">
+      <path d="M10 80 Q10 20 60 10 Q110 20 110 80 L110 85 Q110 90 105 90 L15 90 Q10 90 10 85 Z"/>
+    </clipPath>
+  </defs>
+
+  <!-- Dome body -->
+  <path d="M10 80 Q10 20 60 10 Q110 20 110 80 L110 85 Q110 90 105 90 L15 90 Q10 90 10 85 Z"
+        fill="url(#domeGrad)" opacity="0.12"/>
+
+  <!-- Mesh lines (hairnet pattern) -->
+  <g clip-path="url(#domeClip)" stroke="#E07A5F" stroke-width="1.2" fill="none" opacity="0.5">
+    <!-- Horizontal rings -->
+    <ellipse cx="60" cy="30" rx="42" ry="6"/>
+    <ellipse cx="60" cy="48" rx="50" ry="7"/>
+    <ellipse cx="60" cy="66" rx="54" ry="7"/>
+    <ellipse cx="60" cy="82" rx="55" ry="5"/>
+
+    <!-- Vertical meridians -->
+    <path d="M60 10 Q58 50 60 90"/>
+    <path d="M25 22 Q30 55 20 88"/>
+    <path d="M95 22 Q90 55 100 88"/>
+    <path d="M12 45 Q25 60 12 85"/>
+    <path d="M108 45 Q95 60 108 85"/>
+  </g>
+
+  <!-- Network nodes at mesh intersections -->
+  <g>
+    <!-- Top center -->
+    <circle cx="60" cy="22" r="4.5" fill="url(#nodeGrad)"/>
+    <circle cx="60" cy="22" r="2" fill="#fff"/>
+
+    <!-- Second ring nodes -->
+    <circle cx="28" cy="38" r="3.8" fill="url(#nodeGrad)"/>
+    <circle cx="28" cy="38" r="1.7" fill="#fff"/>
+    <circle cx="60" cy="42" r="4.5" fill="url(#nodeGrad)"/>
+    <circle cx="60" cy="42" r="2" fill="#fff"/>
+    <circle cx="92" cy="38" r="3.8" fill="url(#nodeGrad)"/>
+    <circle cx="92" cy="38" r="1.7" fill="#fff"/>
+
+    <!-- Third ring nodes -->
+    <circle cx="16" cy="58" r="3.2" fill="url(#nodeGrad)"/>
+    <circle cx="16" cy="58" r="1.4" fill="#fff"/>
+    <circle cx="42" cy="56" r="3.8" fill="url(#nodeGrad)"/>
+    <circle cx="42" cy="56" r="1.7" fill="#fff"/>
+    <circle cx="60" cy="60" r="5" fill="url(#nodeGrad)"/>
+    <circle cx="60" cy="60" r="2.2" fill="#fff"/>
+    <circle cx="78" cy="56" r="3.8" fill="url(#nodeGrad)"/>
+    <circle cx="78" cy="56" r="1.7" fill="#fff"/>
+    <circle cx="104" cy="58" r="3.2" fill="url(#nodeGrad)"/>
+    <circle cx="104" cy="58" r="1.4" fill="#fff"/>
+
+    <!-- Bottom ring nodes -->
+    <circle cx="22" cy="78" r="3" fill="url(#nodeGrad)"/>
+    <circle cx="22" cy="78" r="1.3" fill="#fff"/>
+    <circle cx="48" cy="80" r="3.5" fill="url(#nodeGrad)"/>
+    <circle cx="48" cy="80" r="1.5" fill="#fff"/>
+    <circle cx="72" cy="80" r="3.5" fill="url(#nodeGrad)"/>
+    <circle cx="72" cy="80" r="1.5" fill="#fff"/>
+    <circle cx="98" cy="78" r="3" fill="url(#nodeGrad)"/>
+    <circle cx="98" cy="78" r="1.3" fill="#fff"/>
+  </g>
+
+  <!-- Connection lines between nodes (network) -->
+  <g stroke="#81B29A" stroke-width="0.8" opacity="0.35" fill="none">
+    <line x1="60" y1="22" x2="28" y2="38"/>
+    <line x1="60" y1="22" x2="92" y2="38"/>
+    <line x1="60" y1="22" x2="60" y2="42"/>
+    <line x1="28" y1="38" x2="16" y2="58"/>
+    <line x1="28" y1="38" x2="42" y2="56"/>
+    <line x1="60" y1="42" x2="42" y2="56"/>
+    <line x1="60" y1="42" x2="78" y2="56"/>
+    <line x1="92" y1="38" x2="104" y2="58"/>
+    <line x1="92" y1="38" x2="78" y2="56"/>
+    <line x1="16" y1="58" x2="22" y2="78"/>
+    <line x1="42" y1="56" x2="48" y2="80"/>
+    <line x1="60" y1="60" x2="48" y2="80"/>
+    <line x1="60" y1="60" x2="72" y2="80"/>
+    <line x1="78" y1="56" x2="72" y2="80"/>
+    <line x1="104" y1="58" x2="98" y2="78"/>
+  </g>
+
+  <!-- Center hub glow -->
+  <circle cx="60" cy="60" r="8" fill="#E07A5F" opacity="0.08"/>
+</svg>

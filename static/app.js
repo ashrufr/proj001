@@ -908,6 +908,11 @@ function viewOnboard() {
           </select>
           <div class="hint">Pick the category that best describes your business.</div>
         </div>
+        <div class="field">
+          <label for="obz-address">Business address</label>
+          <input id="obz-address" name="address" type="text" placeholder="123 Main St, City, State ZIP" />
+          <div class="hint">For Google Maps directions on your booking page.</div>
+        </div>
         ${defaultServiceFields()}
         <button class="btn btn-primary btn-lg btn-block" type="submit">Continue to dashboard ${I.arrowRight}</button>
       </form>
@@ -1288,6 +1293,11 @@ function viewBusinessAuth() {
           <select id="category" name="category" required>
             ${categoryOptions()}
           </select>
+        </div>
+        <div class="field">
+          <label for="address">Business address</label>
+          <input id="address" name="address" type="text" placeholder="123 Main St, City, State ZIP" />
+          <div class="hint">For Google Maps directions on your booking page.</div>
         </div>
         ${defaultServiceFields()}` : ''}
         <div class="field">
@@ -1819,6 +1829,7 @@ App.doSignUp = async function (e) {
   const role = fd.get('role');
   const business = fd.get('business') ? fd.get('business').trim() : '';
   const category = (fd.get('category') || '').trim();
+  const address = (fd.get('address') || '').trim();
   const serviceName = (fd.get('serviceName') || '').trim();
   const password = validatePassword(fd);
   if (password === null) return;
@@ -1828,7 +1839,7 @@ App.doSignUp = async function (e) {
   const btn = e.target.querySelector('button[type="submit"]');
   if (btn) { btn.disabled = true; btn.textContent = 'Creating account...'; }
   try {
-    const res = await apiClient.signUp({ name, email, password, role, business, category });
+    const res = await apiClient.signUp({ name, email, password, role, business, category, address });
     state.user = res.user;
     if (role === 'provider') {
       state.businessName = business;
@@ -2087,12 +2098,13 @@ App.onboardSetupBusiness = async function (e) {
   const name = fd.get('name').trim();
   const business = fd.get('business').trim();
   const category = (fd.get('category') || '').trim();
+  const address = (fd.get('address') || '').trim();
   const serviceName = (fd.get('serviceName') || '').trim();
   if (!business) { toast('Please enter your business name.'); return; }
   if (!category) { toast('Please choose a business category.'); return; }
   if (!serviceName) { toast('Please add your first service.'); return; }
   try {
-    const res = await apiClient.businessSetup({ name, business, category });
+    const res = await apiClient.businessSetup({ name, business, category, address });
     sessionStorage.removeItem('ae_pending_google_name');
     state.businessName = res.business || business;
     state.businessCategory = res.category || category;
