@@ -53,6 +53,10 @@ const API = (() => {
     googleBusinessSession: () => req('GET', '/api/auth/google/business-session'),
     businessForgotPassword: (business) => req('POST', '/api/auth/business/forgot-password', { business }),
     businessResetPassword: (d) => req('POST', '/api/auth/business/reset-password', d),
+
+    createReview: (d) => req('POST', '/api/reviews', d),
+    listReviews: (business) => req('GET', '/api/reviews/' + encodeURIComponent(business)),
+    listAllRatings: () => req('GET', '/api/ratings'),
   };
 })();
 

@@ -187,6 +187,17 @@ CREATE TABLE Meta (
   value NVARCHAR(MAX) NOT NULL
 );
 
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Reviews')
+CREATE TABLE Reviews (
+  id NVARCHAR(20) PRIMARY KEY,
+  business NVARCHAR(200) NOT NULL,
+  customer_id NVARCHAR(20) NULL,
+  customer_name NVARCHAR(200) NOT NULL DEFAULT '',
+  rating INT NOT NULL,
+  comment NVARCHAR(MAX) NOT NULL DEFAULT '',
+  created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+);
+
 /* ---- indexes ---- */
 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Services_BusinessId' AND object_id = OBJECT_ID('Services'))
 CREATE INDEX IX_Services_BusinessId ON Services(business_id);
@@ -202,6 +213,9 @@ CREATE INDEX IX_Appointments_Business_Date ON Appointments(business, date);
 
 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Users_GoogleId' AND object_id = OBJECT_ID('Users'))
 CREATE INDEX IX_Users_GoogleId ON Users(google_id);
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Reviews_Business' AND object_id = OBJECT_ID('Reviews'))
+CREATE INDEX IX_Reviews_Business ON Reviews(business);
 """
 
 
@@ -343,6 +357,60 @@ def list_businesses(conn):
         "SELECT name FROM Businesses WHERE name <> 'My Business' ORDER BY name"
     ).fetchall()
     return [{"name": r[0], "category": ""} for r in rows]
+
+
+# ---------------------------------------------------------------------------
+# reviews
+# ---------------------------------------------------------------------------
+@_with_conn
+def create_review(conn, business, customer_id, customer_name, rating, comment):
+    """Create a review for a business. Returns the review dict."""
+    rating = max(1, min(5, int(rating or 3)))
+    rid = _new_id("r")
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO Reviews (id, business, customer_id, customer_name, rating, comment) VALUES (?, ?, ?, ?, ?, ?)",
+        (rid, business, customer_id, customer_name or "", rating, comment or ""),
+    )
+    return {"id": rid, "business": business, "customer_id": customer_id,
+            "customer_name": customer_name or "", "rating": rating, "comment": comment or ""}
+
+
+@_with_conn
+def list_reviews(conn, business):
+    """Return all reviews for a business, newest first."""
+    cursor = conn.cursor()
+    rows = cursor.execute(
+        "SELECT id, business, customer_id, customer_name, rating, comment, created_at "
+        "FROM Reviews WHERE business = ? ORDER BY created_at DESC",
+        (business,),
+    ).fetchall()
+    return [{"id": r[0], "business": r[1], "customer_id": r[2],
+             "customer_name": r[3], "rating": r[4], "comment": r[5],
+             "created_at": str(r[6]) if r[6] else ""} for r in rows]
+
+
+@_with_conn
+def get_business_rating(conn, business):
+    """Return average rating and review count for a business."""
+    cursor = conn.cursor()
+    row = cursor.execute(
+        "SELECT AVG(CAST(rating AS FLOAT)), COUNT(*) FROM Reviews WHERE business = ?",
+        (business,),
+    ).fetchone()
+    avg = round(row[0], 1) if row and row[0] else None
+    count = row[1] if row else 0
+    return {"average": avg, "count": count}
+
+
+@_with_conn
+def list_all_ratings(conn):
+    """Return ratings for all businesses as a dict keyed by business name."""
+    cursor = conn.cursor()
+    rows = cursor.execute(
+        "SELECT business, AVG(CAST(rating AS FLOAT)), COUNT(*) FROM Reviews GROUP BY business"
+    ).fetchall()
+    return {r[0]: {"average": round(r[1], 1) if r[1] else None, "count": r[2]} for r in rows}
 
 
 # ---------------------------------------------------------------------------
@@ -1201,6 +1269,7 @@ def get_full_state(conn, viewer=None):
         "user": get_user(conn=conn),
         "businessName": business_name,
         "businesses": list_businesses(conn=conn),
+        "ratings": list_all_ratings(conn=conn),
     }
 
 

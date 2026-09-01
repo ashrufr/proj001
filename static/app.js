@@ -50,6 +50,22 @@ function catStyle(cat) {
   return CAT_STYLE[cat] || { grad: 'linear-gradient(135deg,#A8A29E,#78716C)', icon: I.spark };
 }
 
+function getBizRating(bizName) {
+  return state.ratings[bizName] || null;
+}
+function renderStars(rating) {
+  if (rating === null || rating === undefined) return '<span class="rating-label">Unrated</span>';
+  const full = Math.floor(rating);
+  const half = rating - full >= 0.5;
+  let stars = '';
+  for (let i = 0; i < 5; i++) {
+    if (i < full) stars += I.star.replace('15"', '13"').replace('currentColor', '#E07A5F');
+    else if (i === full && half) stars += I.star.replace('15"', '13"').replace('currentColor', '#E07A5F').replace('fill="currentColor"', 'fill="#E07A5F" opacity="0.5"');
+    else stars += I.star.replace('15"', '13"').replace('currentColor', 'var(--stone-300)');
+  }
+  return `<span class="rating-display">${stars}<span class="rating-num">${rating}</span></span>`;
+}
+
 /* ---------------- State ---------------- */
 const STORE_KEY = 'hairnet_state_v1';
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -78,6 +94,7 @@ function emptyState() {
     businessName: 'My Business',
     businessCategory: '',
     businesses: [],
+    ratings: {},
   };
 }
 
@@ -159,6 +176,7 @@ function normalizeRemote(remote) {
     businessName: remote.businessName || 'My Business',
     businessCategory: remote.businessCategory || '',
     businesses: remote.businesses || [],
+    ratings: remote.ratings || {},
   };
 }
 
@@ -647,10 +665,11 @@ function viewBrowseBusinesses(cat, q) {
     const prices = services.filter(s => s.business === b).map(s => s.price);
     const lo = Math.min(...prices), hi = Math.max(...prices);
     const priceRange = prices.length ? (lo === hi ? money(lo) : money(lo) + ' – ' + money(hi)) : 'No services yet';
+    const rating = getBizRating(b);
     return `<a class="biz-browse-card" href="#/browse?cat=${encodeURIComponent(cat)}&biz=${encodeURIComponent(b)}">
       <span class="blogo" style="background:${bs.grad}">${bs.initial}</span>
       <div class="binfo">
-        <h3>${esc(b)}</h3>
+        <h3>${esc(b)} ${renderStars(rating ? rating.average : null)}</h3>
         <p>${n} service${n === 1 ? '' : 's'} · ${priceRange}</p>
         <div class="bcount">View services →</div>
       </div>
@@ -710,7 +729,10 @@ function viewBrowseServices(cat, biz, q) {
     <div class="page-head" style="display:flex;align-items:center;gap:14px">
       <span class="avatar-logo" style="width:48px;height:48px;border-radius:14px;font-size:18px;background:${bs.grad};color:#fff;display:flex;align-items:center;justify-content:center">${bs.initial}</span>
       <div>
-        <h1 style="font-size:22px">${esc(biz)}</h1>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <h1 style="font-size:22px">${esc(biz)}</h1>
+          <span class="rating-lg">${renderStars(getBizRating(biz) ? getBizRating(biz).average : null)}</span>
+        </div>
         <p style="margin:0">${esc(cat)} · ${list.length} service${list.length === 1 ? '' : 's'}</p>
       </div>
     </div>
@@ -728,6 +750,7 @@ function viewBrowseServices(cat, biz, q) {
 function serviceCard(s) {
   const bs = bizStyle(s.business);
   const cs = catStyle(s.category);
+  const rating = getBizRating(s.business);
   return `
   <a class="service-card" href="#/service/${s.id}">
     <div class="cover" style="background:${cs.grad}">
@@ -735,7 +758,7 @@ function serviceCard(s) {
       <span class="big-ico">${cs.icon.replace('20"', '26"')}</span>
     </div>
     <div class="body">
-      <div class="biz"><span class="avatar-logo" style="width:20px;height:20px;border-radius:7px;font-size:10px;background:${bs.grad}">${bs.initial}</span>${esc(s.business)}</div>
+      <div class="biz"><span class="avatar-logo" style="width:20px;height:20px;border-radius:7px;font-size:10px;background:${bs.grad}">${bs.initial}</span>${esc(s.business)} ${renderStars(rating ? rating.average : null)}</div>
       <h3>${esc(s.name)}</h3>
       <div class="desc">${esc(s.desc)}</div>
       <div class="foot">
@@ -752,6 +775,7 @@ function viewService(id) {
   if (!s) return viewNotFound();
   const bs = bizStyle(s.business);
   const cs = catStyle(s.category);
+  const rating = getBizRating(s.business);
 
   return `
   <div class="page container">
@@ -770,7 +794,7 @@ function viewService(id) {
         <p class="detail-desc">${esc(s.desc)}</p>
         <div class="prov-row">
           <span class="avatar-logo" style="background:${bs.grad}">${bs.initial}</span>
-          <div><b>${esc(s.business)}</b><span>${esc(s.category)} · Verified provider</span></div>
+          <div><b>${esc(s.business)}</b> ${renderStars(rating ? rating.average : null)}<span>${esc(s.category)} · Verified provider</span></div>
           ${I.shield}
         </div>
       </div>
@@ -781,6 +805,31 @@ function viewService(id) {
           ${bookingPanel(s)}
         </div>
       </div>
+    </div>
+    <div style="max-width:640px;margin-top:32px">
+      <h2 style="font-size:18px;font-weight:800;color:var(--stone-900);margin-bottom:16px">Reviews for ${esc(s.business)}</h2>
+      <div class="card" style="padding:20px;margin-bottom:16px">
+        <h3 style="font-size:14px;font-weight:700;color:var(--stone-900);margin-bottom:12px">Leave a review</h3>
+        <form onsubmit="App.submitReview(event,'${esc(s.business)}')">
+          <div class="field">
+            <label>Your rating</label>
+            <div id="star-picker" style="display:flex;gap:4px;cursor:pointer">
+              ${[1,2,3,4,5].map(n => `<span class="star-pick" data-rating="${n}" onclick="App.pickStar(${n})" style="font-size:24px;color:var(--stone-300)">${I.star}</span>`).join('')}
+            </div>
+            <input type="hidden" name="rating" id="review-rating" value="0" />
+          </div>
+          <div class="field">
+            <label for="review-name">Your name</label>
+            <input id="review-name" name="customer_name" type="text" placeholder="Your name" value="${esc(state.user ? state.user.name : '')}" />
+          </div>
+          <div class="field">
+            <label for="review-comment">Comment</label>
+            <textarea id="review-comment" name="comment" rows="3" placeholder="Tell others about your experience…"></textarea>
+          </div>
+          <button class="btn btn-primary btn-sm" type="submit">Submit review</button>
+        </form>
+      </div>
+      <div id="reviews-list"></div>
     </div>
   </div>`;
 }
@@ -1511,6 +1560,7 @@ function apptCard(a, cancellable) {
           </div>
           <div class="meta">
             <span style="display:inline-flex;align-items:center;gap:4px"><span class="avatar-logo" style="width:16px;height:16px;border-radius:5px;font-size:8px;background:${bs.grad}">${bs.initial}</span>${esc(a.business)}</span>
+            ${renderStars(getBizRating(a.business) ? getBizRating(a.business).average : null)}
           </div>
         </div>
       </div>
@@ -1800,6 +1850,8 @@ function afterRender(view, id, tab) {
       if (saved) notes.value = saved;
       notes.addEventListener('input', () => sessionStorage.setItem('ae_notes', notes.value));
     }
+    const s = byId(id);
+    if (s && s.business) App.loadReviews(s.business);
   }
 }
 
@@ -2348,6 +2400,58 @@ App.saveAddress = async function (e) {
   }
 };
 
+App.pickStar = function (n) {
+  document.getElementById('review-rating').value = n;
+  document.querySelectorAll('.star-pick').forEach(el => {
+    const r = Number(el.dataset.rating);
+    el.style.color = r <= n ? '#E07A5F' : 'var(--stone-300)';
+  });
+};
+
+App.submitReview = async function (e, business) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const rating = Number(fd.get('rating'));
+  if (!rating || rating < 1 || rating > 5) { toast('Please select a rating.'); return; }
+  const customer_name = (fd.get('customer_name') || '').trim();
+  const comment = (fd.get('comment') || '').trim();
+  try {
+    await apiClient.createReview({ business, rating, customer_name, comment });
+    toast('Review submitted!');
+    const res = await apiClient.listReviews(business);
+    state.ratings[business] = res.rating;
+    persist();
+    render();
+    App.loadReviews(business);
+  } catch (err) {
+    toast('Could not submit review: ' + err.message);
+  }
+};
+
+App.loadReviews = async function (business) {
+  const el = document.getElementById('reviews-list');
+  if (!el) return;
+  try {
+    const res = await apiClient.listReviews(business);
+    const reviews = res.reviews || [];
+    if (!reviews.length) {
+      el.innerHTML = '<p class="sm" style="color:var(--stone-400)">No reviews yet. Be the first!</p>';
+      return;
+    }
+    el.innerHTML = reviews.map(r => `
+      <div class="card" style="padding:16px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <b style="font-size:14px">${esc(r.customer_name || 'Anonymous')}</b>
+          ${renderStars(r.rating)}
+        </div>
+        ${r.comment ? `<p class="sm" style="color:var(--stone-600)">${esc(r.comment)}</p>` : ''}
+      </div>
+    `).join('');
+  } catch (err) {
+    el.innerHTML = '<p class="sm" style="color:var(--stone-400)">Could not load reviews.</p>';
+  }
+};
+
 App.closeModal = closeModal;
 
 /* ---------------- init ---------------- */
@@ -2410,12 +2514,13 @@ async function pollCatalog() {
     if (!remote || !Array.isArray(remote.services)) return;
     const hours = {};
     for (let i = 0; i < 7; i++) hours[i] = (remote.hours && (remote.hours[String(i)] || remote.hours[i])) || null;
-    const next = JSON.stringify({ s: remote.services || [], b: remote.businesses || [], h: hours });
+    const next = JSON.stringify({ s: remote.services || [], b: remote.businesses || [], h: hours, r: remote.ratings || {} });
     if (next === lastCatalogJson) return;
     lastCatalogJson = next;
     state.services = remote.services || [];
     state.businesses = remote.businesses || [];
     state.hours = hours;
+    state.ratings = remote.ratings || {};
     persist();
     const { view } = parseHash();
     if (view === 'browse' || view === 'service' || view === 'home' || view === 'provider') render();

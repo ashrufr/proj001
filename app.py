@@ -298,6 +298,36 @@ def api_save_business_address():
     return jsonify({"ok": True})
 
 
+@app.route("/api/reviews", methods=["POST"])
+def api_create_review():
+    user = _current_user()
+    data = request.get_json() or {}
+    business = (data.get("business") or "").strip()
+    if not business:
+        return jsonify({"error": "Business name is required."}), 400
+    rating = data.get("rating")
+    if not rating or int(rating) < 1 or int(rating) > 5:
+        return jsonify({"error": "Rating must be between 1 and 5."}), 400
+    customer_id = user["id"] if user else None
+    customer_name = (data.get("customer_name") or (user.get("name") if user else "") or "").strip()
+    comment = (data.get("comment") or "").strip()
+    review = db.create_review(business, customer_id, customer_name, int(rating), comment)
+    return jsonify({"ok": True, "review": review}), 201
+
+
+@app.route("/api/reviews/<business>", methods=["GET"])
+def api_list_reviews(business):
+    reviews = db.list_reviews(business)
+    rating = db.get_business_rating(business)
+    return jsonify({"reviews": reviews, "rating": rating})
+
+
+@app.route("/api/ratings", methods=["GET"])
+def api_list_all_ratings():
+    ratings = db.list_all_ratings()
+    return jsonify({"ratings": ratings})
+
+
 @app.route("/api/business/setup", methods=["POST"])
 def api_business_setup():
     """Link the provider to a business and update their display name.
