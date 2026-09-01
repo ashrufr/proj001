@@ -890,8 +890,12 @@ function viewOnboard() {
       <h1>Set up your business</h1>
       <p>Tell us the name of your business and how to address you.</p>
     </div>
-    <div class="card" style="padding:30px">
-      <form onsubmit="App.onboardSetupBusiness(event)">
+    <form onsubmit="App.onboardSetupBusiness(event)">
+      <div class="card" style="padding:22px;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+          <span style="width:32px;height:32px;border-radius:10px;background:var(--terracotta-soft);color:var(--terracotta);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800">1</span>
+          <h3 style="font-size:15px;font-weight:700;color:var(--stone-900);margin:0">Business details</h3>
+        </div>
         <div class="field">
           <label for="obz-name">Your full name</label>
           <input id="obz-name" name="name" type="text" placeholder="Alex Morgan" value="${esc(u.name || '')}" required />
@@ -908,6 +912,12 @@ function viewOnboard() {
           </select>
           <div class="hint">Pick the category that best describes your business.</div>
         </div>
+      </div>
+      <div class="card" style="padding:22px;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+          <span style="width:32px;height:32px;border-radius:10px;background:var(--sage-soft);color:var(--sage-deep);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800">2</span>
+          <h3 style="font-size:15px;font-weight:700;color:var(--stone-900);margin:0">Address details</h3>
+        </div>
         <div class="field">
           <label for="obz-street_address">Street address</label>
           <input id="obz-street_address" name="street_address" type="text" placeholder="123 Main St" />
@@ -922,11 +932,28 @@ function viewOnboard() {
             <input id="obz-zip_code" name="zip_code" type="text" placeholder="12345" />
           </div>
         </div>
-        <div class="hint" style="margin-top:-10px;margin-bottom:14px">For Google Maps directions on your booking page.</div>
+        <div class="hint" style="margin-top:-10px">For Google Maps directions on your booking page.</div>
+      </div>
+      <div class="card" style="padding:22px;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+          <span style="width:32px;height:32px;border-radius:10px;background:#F0EDFB;color:#6D5ACF;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800">3</span>
+          <h3 style="font-size:15px;font-weight:700;color:var(--stone-900);margin:0">First service</h3>
+        </div>
         ${defaultServiceFields()}
-        <button class="btn btn-primary btn-lg btn-block" type="submit">Continue to dashboard ${I.arrowRight}</button>
-      </form>
-    </div>
+      </div>
+      <div class="card" style="padding:22px;margin-bottom:18px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+          <span style="width:32px;height:32px;border-radius:10px;background:var(--cream);color:var(--stone-700);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800">4</span>
+          <h3 style="font-size:15px;font-weight:700;color:var(--stone-900);margin:0">Account details</h3>
+        </div>
+        <div class="field">
+          <label for="obz-email">Email</label>
+          <input id="obz-email" type="email" value="${esc(u.email || '')}" disabled style="background:var(--stone-100);color:var(--stone-500)" />
+          <div class="hint">Signed in with Google. Your account is linked to this email.</div>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-lg btn-block" type="submit">Continue to dashboard ${I.arrowRight}</button>
+    </form>
   </div>`;
 }
 
