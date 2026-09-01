@@ -1500,25 +1500,30 @@ function apptCard(a, cancellable) {
   if (address) actions.push(`<a class="btn btn-outline btn-sm" href="${mapsDirectionsUrl(address)}" target="_blank" rel="noopener">${I.arrowRight.replace('16"','14"')} Directions</a>`);
   return `
   <div class="appt-card card">
-    <span class="avatar-logo" style="background:${cs.grad}">${cs.icon.replace('20"','22"')}</span>
-    <div style="flex:1;min-width:180px">
-      <div class="flex items-center gap-2" style="gap:8px;flex-wrap:wrap">
-        <h3>${esc(a.serviceName)}</h3>
-        <span class="status ${stCls}">${a.status}</span>
+    <div class="appt-card-header">
+      <div style="display:flex;align-items:center;gap:12px;min-width:0">
+        <span class="avatar-logo" style="background:${cs.grad}">${cs.icon.replace('20"','22"')}</span>
+        <div style="min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <h3 style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(a.serviceName)}</h3>
+            <span class="status ${stCls}">${a.status}</span>
+          </div>
+          <div class="meta">
+            <span style="display:inline-flex;align-items:center;gap:4px"><span class="avatar-logo" style="width:16px;height:16px;border-radius:5px;font-size:8px;background:${bs.grad}">${bs.initial}</span>${esc(a.business)}</span>
+          </div>
+        </div>
       </div>
-      <div class="meta">
-        ${I.calendar.replace('18"','13"')} ${fmtLong(a.date, a.time)}
-        <span style="color:var(--stone-300)">·</span>
-        <span style="display:inline-flex;align-items:center;gap:4px"><span class="avatar-logo" style="width:16px;height:16px;border-radius:5px;font-size:8px;background:${bs.grad}">${bs.initial}</span>${esc(a.business)}</span>
+      <div style="text-align:right;flex-shrink:0">
+        <div class="price">${money(a.price)}</div>
+        <div class="sm">${minutesLabel(a.duration)}</div>
       </div>
-      ${a.customerName ? `<div class="sm" style="margin-top:4px;font-weight:600;color:var(--stone-700)">${I.user.replace('18"','12"')} ${esc(a.customerName)}</div>` : ''}
-      ${a.notes ? `<p class="sm" style="margin-top:6px">"${esc(a.notes)}"</p>` : ''}
-      ${actions.length ? `<div style="display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-top:10px">${actions.join('')}</div>` : ''}
     </div>
-    <div style="text-align:right">
-      <div class="price">${money(a.price)}</div>
-      <div class="sm">${minutesLabel(a.duration)}</div>
+    <div class="appt-card-meta">
+      ${I.calendar.replace('18"','13"')} ${fmtLong(a.date, a.time)}
+      ${a.customerName ? `<span style="color:var(--stone-300)">·</span> ${I.user.replace('18"','12"')} ${esc(a.customerName)}` : ''}
     </div>
+    ${a.notes ? `<div class="appt-card-notes">"${esc(a.notes)}"</div>` : ''}
+    ${actions.length ? `<div class="appt-card-actions">${actions.join('')}</div>` : ''}
   </div>`;
 }
 
