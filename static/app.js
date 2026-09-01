@@ -1495,6 +1495,9 @@ function apptCard(a, cancellable) {
   const cs = catStyle(a.category);
   const stCls = { pending: 'status-pending', confirmed: 'status-confirmed', cancelled: 'status-cancelled', completed: 'status-completed' }[a.status] || 'status-pending';
   const address = getBusinessAddress(a.business);
+  const actions = [];
+  if (address) actions.push(`<a class="btn btn-outline btn-sm" href="${mapsDirectionsUrl(address)}" target="_blank" rel="noopener">${I.arrowRight.replace('16"','14"')} Directions</a>`);
+  if (cancellable && a.status !== 'cancelled') actions.push(`<button class="btn btn-outline btn-sm" onclick="App.cancelAppt('${a.id}')">Cancel</button>`);
   return `
   <div class="appt-card card">
     <span class="avatar-logo" style="background:${cs.grad}">${cs.icon.replace('20"','22"')}</span>
@@ -1510,15 +1513,12 @@ function apptCard(a, cancellable) {
       </div>
       ${a.customerName ? `<div class="sm" style="margin-top:4px;font-weight:600;color:var(--stone-700)">${I.user.replace('18"','12"')} ${esc(a.customerName)}</div>` : ''}
       ${a.notes ? `<p class="sm" style="margin-top:6px">"${esc(a.notes)}"</p>` : ''}
+      ${actions.length ? `<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">${actions.join('')}</div>` : ''}
     </div>
-    <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-      <div>
-        <div class="price">${money(a.price)}</div>
-        <div class="sm">${minutesLabel(a.duration)}</div>
-      </div>
-      ${address ? `<a class="btn btn-outline btn-sm" href="${mapsDirectionsUrl(address)}" target="_blank" rel="noopener" style="text-decoration:none">${I.arrowRight.replace('16"','14"')} Directions</a>` : ''}
+    <div style="text-align:right">
+      <div class="price">${money(a.price)}</div>
+      <div class="sm">${minutesLabel(a.duration)}</div>
     </div>
-    ${cancellable && a.status !== 'cancelled' ? `<button class="btn btn-outline btn-sm" onclick="App.cancelAppt('${a.id}')">Cancel</button>` : ''}
   </div>`;
 }
 
