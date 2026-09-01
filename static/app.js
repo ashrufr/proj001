@@ -1451,6 +1451,17 @@ function viewBusinessResetPasswordForm() {
   </div>`;
 }
 
+/* ---------------- Business address helpers ---------------- */
+function getBusinessAddress(bizName) {
+  const b = (state.businesses || []).find(x => x.name === bizName);
+  if (!b) return null;
+  const parts = [b.street_address, b.city, b.zip_code].filter(Boolean);
+  return parts.length >= 2 ? parts.join(', ') : null;
+}
+function mapsDirectionsUrl(address) {
+  return 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(address);
+}
+
 /* ---------------- My appointments ---------------- */
 function viewAppointments() {
   const list = state.appointments.slice().sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
@@ -1483,6 +1494,7 @@ function apptCard(a, cancellable) {
   const bs = bizStyle(a.business);
   const cs = catStyle(a.category);
   const stCls = { pending: 'status-pending', confirmed: 'status-confirmed', cancelled: 'status-cancelled', completed: 'status-completed' }[a.status] || 'status-pending';
+  const address = getBusinessAddress(a.business);
   return `
   <div class="appt-card card">
     <span class="avatar-logo" style="background:${cs.grad}">${cs.icon.replace('20"','22"')}</span>
@@ -1497,11 +1509,14 @@ function apptCard(a, cancellable) {
         <span style="display:inline-flex;align-items:center;gap:4px"><span class="avatar-logo" style="width:16px;height:16px;border-radius:5px;font-size:8px;background:${bs.grad}">${bs.initial}</span>${esc(a.business)}</span>
       </div>
       ${a.customerName ? `<div class="sm" style="margin-top:4px;font-weight:600;color:var(--stone-700)">${I.user.replace('18"','12"')} ${esc(a.customerName)}</div>` : ''}
-      ${a.notes ? `<p class="sm" style="margin-top:6px">“${esc(a.notes)}”</p>` : ''}
+      ${a.notes ? `<p class="sm" style="margin-top:6px">"${esc(a.notes)}"</p>` : ''}
     </div>
-    <div style="text-align:right">
-      <div class="price">${money(a.price)}</div>
-      <div class="sm">${minutesLabel(a.duration)}</div>
+    <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+      <div>
+        <div class="price">${money(a.price)}</div>
+        <div class="sm">${minutesLabel(a.duration)}</div>
+      </div>
+      ${address ? `<a class="btn btn-outline btn-sm" href="${mapsDirectionsUrl(address)}" target="_blank" rel="noopener" style="text-decoration:none">${I.arrowRight.replace('16"','14"')} Directions</a>` : ''}
     </div>
     ${cancellable && a.status !== 'cancelled' ? `<button class="btn btn-outline btn-sm" onclick="App.cancelAppt('${a.id}')">Cancel</button>` : ''}
   </div>`;
