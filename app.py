@@ -32,17 +32,21 @@ GMAIL_SMTP_PORT = int(os.environ.get("GMAIL_SMTP_PORT", "587"))
 GMAIL_SMTP_USER = os.environ.get("GMAIL_SMTP_USER", "")
 GMAIL_SMTP_PASS = os.environ.get("GMAIL_SMTP_PASS", "")
 
+if GMAIL_SMTP_USER:
+    print(f"HairNet: SMTP configured — host={GMAIL_SMTP_HOST}:{GMAIL_SMTP_PORT} user={GMAIL_SMTP_USER}")
+else:
+    print("HairNet: WARNING — GMAIL_SMTP_USER not set, emails will not be sent")
+
 
 def _send_email(to_email, subject, html_body):
     """Send an HTML email via Gmail SMTP. Returns True on success, False on failure."""
     if not GMAIL_SMTP_USER or not GMAIL_SMTP_PASS:
         print("HairNet: Gmail SMTP not configured — skipping email send.")
         return False
-    sender = "hairnet-support@gmail.com"
     try:
         msg = MIMEMultipart("alternative")
-        msg["From"] = f"HairNet Support <{sender}>"
-        msg["Reply-To"] = sender
+        msg["From"] = f"HairNet Support <{GMAIL_SMTP_USER}>"
+        msg["Reply-To"] = "hairnet-support@gmail.com"
         msg["To"] = to_email
         msg["Subject"] = subject
         msg.attach(MIMEText(html_body, "html"))
@@ -51,7 +55,8 @@ def _send_email(to_email, subject, html_body):
             server.starttls()
             server.ehlo()
             server.login(GMAIL_SMTP_USER, GMAIL_SMTP_PASS)
-            server.sendmail(sender, to_email, msg.as_string())
+            server.sendmail(GMAIL_SMTP_USER, to_email, msg.as_string())
+        print(f"HairNet: email sent to {to_email}")
         return True
     except Exception as exc:
         print(f"HairNet: failed to send email to {to_email}: {exc}")
@@ -529,10 +534,12 @@ def api_forgot_password():
     email = (data.get("email") or "").strip()
     if not email:
         return jsonify({"error": "email is required"}), 400
+    print(f"HairNet: forgot-password requested for {email}")
     token = db.create_reset_token(email)
     if token is None:
-        # Don't reveal whether the email exists
+        print(f"HairNet: no user found for {email}")
         return jsonify({"ok": True})
+    print(f"HairNet: reset token created for {email}: {token[:8]}...")
     reset_url = f"{_reset_link_base()}/#/reset-password?token={token}"
     subject = "HairNet — Reset your password"
     html_body = f"""
@@ -546,18 +553,20 @@ def api_forgot_password():
          style="display:inline-block;background:#E07A5F;color:#fff;padding:12px 28px;border-radius:12px;text-decoration:none;font-weight:600;font-size:15px;margin:16px 0">
         Reset password
       </a>
-      <p style="color:#57534E;font-size:15px;line-height:1.6;margin-top:16px">
-        Or copy and paste this reset token:
+      <p style="color:#57534E;font-size:15px;line-height:1.6;margin-top:20px">
+        Or copy this reset token:
       </p>
-      <div style="background:#F5F5F4;border:1px solid #E7E5E4;border-radius:8px;padding:12px 16px;font-family:monospace;font-size:14px;color:#1C1917;word-break:break-all;margin:8px 0">
+      <div onclick="this.select()" style="background:#F5F5F4;border:2px dashed #D6D3D1;border-radius:8px;padding:14px 18px;font-family:'Courier New',monospace;font-size:15px;color:#1C1917;word-break:break-all;margin:12px 0;cursor:text;user-select:all">
         {token}
       </div>
+      <p style="color:#78716C;font-size:13px;margin-top:8px">Click the token above to select it, then Ctrl+C to copy.</p>
       <p style="color:#78716C;font-size:13px;margin-top:24px">
         If you didn't request a password reset, you can safely ignore this email.
       </p>
     </div>
     """
-    _send_email(email, subject, html_body)
+    sent = _send_email(email, subject, html_body)
+    print(f"HairNet: email send result: {sent}")
     return jsonify({"ok": True})
 
 
@@ -599,12 +608,13 @@ def api_business_forgot_password():
              style="display:inline-block;background:#E07A5F;color:#fff;padding:12px 28px;border-radius:12px;text-decoration:none;font-weight:600;font-size:15px;margin:16px 0">
             Reset business password
           </a>
-          <p style="color:#57534E;font-size:15px;line-height:1.6;margin-top:16px">
-            Or copy and paste this reset token:
+          <p style="color:#57534E;font-size:15px;line-height:1.6;margin-top:20px">
+            Or copy this reset token:
           </p>
-          <div style="background:#F5F5F4;border:1px solid #E7E5E4;border-radius:8px;padding:12px 16px;font-family:monospace;font-size:14px;color:#1C1917;word-break:break-all;margin:8px 0">
+          <div onclick="this.select()" style="background:#F5F5F4;border:2px dashed #D6D3D1;border-radius:8px;padding:14px 18px;font-family:'Courier New',monospace;font-size:15px;color:#1C1917;word-break:break-all;margin:12px 0;cursor:text;user-select:all">
             {token}
           </div>
+          <p style="color:#78716C;font-size:13px;margin-top:8px">Click the token above to select it, then Ctrl+C to copy.</p>
           <p style="color:#78716C;font-size:13px;margin-top:24px">
             If you didn't request a password reset, you can safely ignore this email.
           </p>
