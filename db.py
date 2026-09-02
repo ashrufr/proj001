@@ -148,7 +148,6 @@ CREATE TABLE Services (
   name NVARCHAR(200) NOT NULL,
   description NVARCHAR(MAX) NOT NULL DEFAULT '',
   duration INT NOT NULL,
-  price FLOAT NOT NULL,
   category NVARCHAR(100) NOT NULL,
   created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
 );
@@ -160,7 +159,6 @@ CREATE TABLE Appointments (
   business NVARCHAR(200) NOT NULL,
   service_name NVARCHAR(200) NOT NULL,
   category NVARCHAR(100) NOT NULL,
-  price FLOAT NOT NULL,
   duration INT NOT NULL,
   date NVARCHAR(10) NOT NULL,
   time NVARCHAR(5) NOT NULL,
@@ -423,7 +421,6 @@ def _service_to_dict(conn, row_dict):
         "name": row_dict["name"],
         "desc": row_dict["description"],
         "duration": row_dict["duration"],
-        "price": row_dict["price"],
         "category": row_dict["category"],
     }
 
@@ -451,10 +448,10 @@ def create_service(conn, data, owner_id=None):
     business_id = _get_or_create_business(conn, data.get("business") or "My Business", owner_id=owner_id)
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO Services (id, business_id, name, description, duration, price, category) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO Services (id, business_id, name, description, duration, category) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
         (sid, business_id, data.get("name", ""), data.get("desc", ""),
-         int(data.get("duration", 30)), float(data.get("price", 0)),
+         int(data.get("duration", 30)),
          data.get("category", "Other")),
     )
     row = cursor.execute("SELECT * FROM Services WHERE id = ?", (sid,)).fetchone()
@@ -472,10 +469,10 @@ def update_service(conn, service_id, data, owner_id=None):
     if data.get("business"):
         business_id = _get_or_create_business(conn, data["business"], owner_id=owner_id)
     cursor.execute(
-        "UPDATE Services SET business_id = ?, name = ?, description = ?, duration = ?, price = ?, category = ? "
+        "UPDATE Services SET business_id = ?, name = ?, description = ?, duration = ?, category = ? "
         "WHERE id = ?",
         (business_id, data.get("name", existing["name"]), data.get("desc", existing["description"]),
-         int(data.get("duration", existing["duration"])), float(data.get("price", existing["price"])),
+         int(data.get("duration", existing["duration"])),
          data.get("category", existing["category"]), service_id),
     )
     row = cursor.execute("SELECT * FROM Services WHERE id = ?", (service_id,)).fetchone()
@@ -497,7 +494,6 @@ def _appt_to_dict(row_dict):
         "business": row_dict["business"],
         "serviceName": row_dict["service_name"],
         "category": row_dict["category"],
-        "price": row_dict["price"],
         "duration": row_dict["duration"],
         "date": row_dict["date"],
         "time": row_dict["time"],
@@ -512,11 +508,11 @@ def _appt_to_dict(row_dict):
 def _insert_appointment(conn, aid, data):
     conn.cursor().execute(
         "INSERT INTO Appointments "
-        "(id, service_id, business, service_name, category, price, duration, "
+        "(id, service_id, business, service_name, category, duration, "
         "date, time, customer_name, customer_id, notes, status, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, SYSUTCDATETIME())",
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, SYSUTCDATETIME())",
         (aid, data.get("serviceId"), data.get("business", ""), data.get("serviceName", ""),
-         data.get("category", ""), float(data.get("price", 0)), int(data.get("duration", 30)),
+         data.get("category", ""), int(data.get("duration", 30)),
          data.get("date", ""), data.get("time", ""), data.get("customerName", ""),
          data.get("customerId"), data.get("notes", ""), data.get("status", "pending")),
     )
@@ -1282,18 +1278,18 @@ def import_state(conn, state):
         existing = cursor.execute("SELECT id FROM Services WHERE id = ?", (sid,)).fetchone()
         if existing:
             cursor.execute(
-                "UPDATE Services SET business_id = ?, name = ?, description = ?, duration = ?, price = ?, category = ? "
+                "UPDATE Services SET business_id = ?, name = ?, description = ?, duration = ?, category = ? "
                 "WHERE id = ?",
                 (business_id, service.get("name", ""), service.get("desc", ""),
-                 int(service.get("duration", 30)), float(service.get("price", 0)),
+                 int(service.get("duration", 30)),
                  service.get("category", "Other"), sid),
             )
         else:
             cursor.execute(
-                "INSERT INTO Services (id, business_id, name, description, duration, price, category) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO Services (id, business_id, name, description, duration, category) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
                 (sid, business_id, service.get("name", ""), service.get("desc", ""),
-                 int(service.get("duration", 30)), float(service.get("price", 0)),
+                 int(service.get("duration", 30)),
                  service.get("category", "Other")),
             )
     for appt in state.get("appointments", []):

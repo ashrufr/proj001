@@ -134,15 +134,9 @@ function defaultServiceFields() {
     <input id="svc-name" name="serviceName" type="text" placeholder="e.g. Signature Haircut" required />
     <div class="hint">Your first bookable service — required so customers can find you.</div>
   </div>
-  <div class="flex gap-2" style="gap:12px">
-    <div class="field" style="flex:1">
-      <label for="svc-price">Price (R)</label>
-      <input id="svc-price" name="servicePrice" type="number" min="0" step="0.01" value="50" required />
-    </div>
-    <div class="field" style="flex:1">
-      <label for="svc-duration">Duration (min)</label>
-      <input id="svc-duration" name="serviceDuration" type="number" min="15" max="480" step="15" value="60" required />
-    </div>
+  <div class="field">
+    <label for="svc-duration">Duration (min)</label>
+    <input id="svc-duration" name="serviceDuration" type="number" min="15" max="480" step="15" value="60" required />
   </div>`;
 }
 
@@ -153,7 +147,6 @@ async function addDefaultService(fd, business, category) {
     id: uid(), business, category,
     name: serviceName, desc: '',
     duration: Number(fd.get('serviceDuration')) || 60,
-    price: Number(fd.get('servicePrice')) || 0,
   };
   try {
     const created = await apiClient.createService(svc);
@@ -184,7 +177,6 @@ function normalizeRemote(remote) {
 function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
-function money(n) { return 'R' + Number(n).toFixed(n % 1 ? 2 : 0); }
 function minutesLabel(m) { return m + ' min'; }
 function fmtLong(isoDate, time) {
   const d = fromISO(isoDate);
@@ -272,7 +264,6 @@ function render() {
   const root = document.getElementById('app');
   let body = '';
   if (view === 'browse') body = viewBrowse();
-  else if (view === 'pricing') body = viewPricing();
   else if (view === 'service') body = viewService(id);
   else if (view === 'account') body = viewAccount();
   else if (view === 'business') body = viewBusinessAuth();
@@ -290,12 +281,12 @@ function render() {
 
 function navHtml() {
   const u = state.user;
-  const links = ['Browse services', 'Pricing'];
+  const links = ['Browse services'];
   if (u && u.role === 'customer') links.push('My appointments');
   if (u && u.role === 'provider') links.push('Dashboard');
   if (!u || u.role === 'customer') links.push('For businesses');
   const linkPath = {
-    'Browse services': '#/browse', 'Pricing': '#/pricing', 'My appointments': '#/appointments',
+    'Browse services': '#/browse', 'My appointments': '#/appointments',
     'Dashboard': '#/provider', 'For businesses': '#/business/create',
   };
   return `
@@ -431,56 +422,7 @@ function viewHome() {
         <div class="feature-card">
           <div class="f-icon">${I.shield}</div>
           <h3>Built for trust</h3>
-          <p>Transparent pricing and confirmed slots, so both sides always know exactly what to expect.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="section section-alt">
-    <div class="container">
-      <div class="section-head">
-        <span class="eyebrow">Pricing</span>
-        <h2>Simple, transparent plans</h2>
-        <p>Start for free, upgrade when you're ready. No hidden fees.</p>
-      </div>
-      <div class="pricing-grid">
-        <div class="pricing-card">
-          <div class="pricing-name">Free</div>
-          <div class="pricing-price">R0<span>/month</span></div>
-          <div class="pricing-limit">Up to 50 appointments per month</div>
-          <ul class="pricing-features">
-            <li>${I.check} Basic booking page</li>
-            <li>${I.check} Service listings</li>
-            <li>${I.check} Schedule management</li>
-            <li>${I.check} Customer notifications</li>
-          </ul>
-          <button class="btn btn-outline btn-block" onclick="App.go('#/account')">Get started</button>
-        </div>
-        <div class="pricing-card pricing-card-featured">
-          <div class="pricing-badge">Popular</div>
-          <div class="pricing-name">Starter</div>
-          <div class="pricing-price">R100<span>/month</span></div>
-          <div class="pricing-limit">Up to 200 appointments per month</div>
-          <ul class="pricing-features">
-            <li>${I.check} Everything in Free</li>
-            <li>${I.check} Priority support</li>
-            <li>${I.check} Advanced analytics</li>
-            <li>${I.check} Custom branding</li>
-          </ul>
-          <button class="btn btn-primary btn-block" onclick="App.go('#/account')">Start free trial</button>
-        </div>
-        <div class="pricing-card">
-          <div class="pricing-name">Pro</div>
-          <div class="pricing-price">R300<span>/month</span></div>
-          <div class="pricing-limit">Unlimited appointments per month</div>
-          <ul class="pricing-features">
-            <li>${I.check} Everything in Starter</li>
-            <li>${I.check} Unlimited bookings</li>
-            <li>${I.check} Multi-staff support</li>
-            <li>${I.check} API access</li>
-          </ul>
-          <button class="btn btn-outline btn-block" onclick="App.go('#/account')">Start free trial</button>
+          <p>Transparent service details and confirmed slots, so both sides always know exactly what to expect.</p>
         </div>
       </div>
     </div>
@@ -490,7 +432,7 @@ function viewHome() {
     <div class="container">
       <div class="cta-banner">
         <h2>Ready to find your next appointment?</h2>
-        <p>Browse trusted salon and barber services or set up your own booking page in minutes — it's free to start.</p>
+        <p>Browse trusted salon and barber services or set up your own booking page in minutes.</p>
         <div class="hero-cta" style="justify-content:center;margin-top:0">
           <button class="btn btn-lg" onclick="App.go('#/browse')">Find a service ${I.arrowRight}</button>
           <button class="btn btn-navy btn-lg" onclick="App.go('#/account')">Start my business</button>
@@ -498,56 +440,6 @@ function viewHome() {
       </div>
     </div>
   </section>`;
-}
-
-/* ---------------- Pricing ---------------- */
-function viewPricing() {
-  return `
-  <div class="page container" style="max-width:920px">
-    <div class="page-head" style="text-align:center">
-      <h1>Pricing</h1>
-      <p>Simple, transparent plans. Start for free, upgrade when you're ready.</p>
-    </div>
-    <div class="pricing-grid">
-      <div class="pricing-card">
-        <div class="pricing-name">Free</div>
-        <div class="pricing-price">R0<span>/month</span></div>
-        <div class="pricing-limit">Up to 50 appointments per month</div>
-        <ul class="pricing-features">
-          <li>${I.check} Basic booking page</li>
-          <li>${I.check} Service listings</li>
-          <li>${I.check} Schedule management</li>
-          <li>${I.check} Customer notifications</li>
-        </ul>
-        <button class="btn btn-outline btn-block" onclick="App.go('#/account')">Get started</button>
-      </div>
-      <div class="pricing-card pricing-card-featured">
-        <div class="pricing-badge">Popular</div>
-        <div class="pricing-name">Starter</div>
-        <div class="pricing-price">R100<span>/month</span></div>
-        <div class="pricing-limit">Up to 200 appointments per month</div>
-        <ul class="pricing-features">
-          <li>${I.check} Everything in Free</li>
-          <li>${I.check} Priority support</li>
-          <li>${I.check} Advanced analytics</li>
-          <li>${I.check} Custom branding</li>
-        </ul>
-        <button class="btn btn-primary btn-block" onclick="App.go('#/account')">Start free trial</button>
-      </div>
-      <div class="pricing-card">
-        <div class="pricing-name">Pro</div>
-        <div class="pricing-price">R300<span>/month</span></div>
-        <div class="pricing-limit">Unlimited appointments per month</div>
-        <ul class="pricing-features">
-          <li>${I.check} Everything in Starter</li>
-          <li>${I.check} Unlimited bookings</li>
-          <li>${I.check} Multi-staff support</li>
-          <li>${I.check} API access</li>
-        </ul>
-        <button class="btn btn-outline btn-block" onclick="App.go('#/account')">Start free trial</button>
-      </div>
-    </div>
-  </div>`;
 }
 
 function mockupCard() {
@@ -569,7 +461,6 @@ function mockupCard() {
         <div class="name">${esc(s.name)}</div>
         <div class="meta">${minutesLabel(s.duration)}</div>
       </div>
-      <div class="price">${money(s.price)}</div>
     </div>
     <div class="mockup-slots">
       <div class="slot-chip">9:00 AM</div>
@@ -662,15 +553,12 @@ function viewBrowseBusinesses(cat, q) {
   const cards = businesses.map(b => {
     const bs = bizStyle(b);
     const n = serviceCount[b] || 0;
-    const prices = services.filter(s => s.business === b).map(s => s.price);
-    const lo = Math.min(...prices), hi = Math.max(...prices);
-    const priceRange = prices.length ? (lo === hi ? money(lo) : money(lo) + ' – ' + money(hi)) : 'No services yet';
     const rating = getBizRating(b);
     return `<a class="biz-browse-card" href="#/browse?cat=${encodeURIComponent(cat)}&biz=${encodeURIComponent(b)}">
       <span class="blogo" style="background:${bs.grad}">${bs.initial}</span>
       <div class="binfo">
         <h3>${esc(b)} ${renderStars(rating ? rating.average : null)}</h3>
-        <p>${n} service${n === 1 ? '' : 's'} · ${priceRange}</p>
+        <p>${n} service${n === 1 ? '' : 's'}</p>
         <div class="bcount">View services →</div>
       </div>
     </a>`;
@@ -762,7 +650,6 @@ function serviceCard(s) {
       <h3>${esc(s.name)}</h3>
       <div class="desc">${esc(s.desc)}</div>
       <div class="foot">
-        <span class="price">${money(s.price)}</span>
         <span class="dur">${I.clock.replace('18"', '12"')} ${minutesLabel(s.duration)}</span>
       </div>
     </div>
@@ -787,7 +674,6 @@ function viewService(id) {
         </div>
         <div class="detail-meta">
           <span class="meta-chip">${I.clock} <strong>${minutesLabel(s.duration)}</strong></span>
-          <span class="meta-chip">${I.wallet} <strong>${money(s.price)}</strong></span>
           <span class="meta-chip" style="background:${cs.grad};color:#fff">${esc(s.category)}</span>
         </div>
         <h1>${esc(s.name)}</h1>
@@ -882,7 +768,6 @@ function bookingPanel(s) {
       <div class="row"><span>Service</span><span>${esc(s.name)}</span></div>
       <div class="row"><span>Duration</span><span>${minutesLabel(s.duration)}</span></div>
       ${selDate && selTime ? `<div class="row"><span>When</span><b>${fmtLong(selDate, selTime)}</b></div>` : ''}
-      <div class="row total"><span>Total</span><span>${money(s.price)}</span></div>
     </div>
     <button class="btn btn-primary btn-lg btn-block mt-3" ${selTime && customerName ? '' : 'disabled'}
       onclick="App.confirmBooking('${s.id}')">Confirm booking ${I.arrowRight}</button>
@@ -901,7 +786,6 @@ function viewConfirmed() {
         <div class="row"><span>Provider</span><b>${esc(d.business)}</b></div>
         <div class="row"><span>When</span><b>${fmtLong(d.date, d.time)}</b></div>
         <div class="row"><span>Duration</span><b>${minutesLabel(d.duration)}</b></div>
-        <div class="row"><span>Total</span><b>${money(d.price)}</b></div>
       </div>`;
   }
   return `
@@ -1565,7 +1449,6 @@ function apptCard(a, cancellable) {
         </div>
       </div>
       <div style="text-align:right;flex-shrink:0">
-        <div class="price">${money(a.price)}</div>
         <div class="sm">${minutesLabel(a.duration)}</div>
       </div>
     </div>
@@ -1622,12 +1505,10 @@ function viewProvider(tab) {
 function dashOverview() {
   const list = myAppointments();
   const active = list.filter(a => a.status !== 'cancelled');
-  const revenue = list.filter(a => a.status === 'confirmed' || a.status === 'completed').reduce((s, a) => s + a.price, 0);
   const hrsSaved = active.reduce((s, a) => s + a.duration, 0);
   const upcoming = list.filter(a => a.status !== 'cancelled' && !isPast(a.date, a.time)).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)).slice(0, 4);
 
   const stats = [
-    { icon: I.wallet, color: 'background:var(--terracotta-soft);color:var(--terracotta-hover)', val: money(revenue), lbl: 'Revenue', sub: 'confirmed bookings' },
     { icon: I.calendar, color: 'background:var(--sage-soft);color:var(--sage-deep)', val: String(active.length), lbl: 'Total bookings', sub: 'this period' },
     { icon: I.zap, color: 'background:var(--cream);color:var(--navy)', val: hrsSaved + ' min', lbl: 'Hours saved', sub: 'for your customers' },
     { icon: I.layers, color: 'background:#F0EDFB;color:#6D5ACF', val: String(state.services.length), lbl: 'Active services', sub: 'across ' + new Set(state.services.map(s => s.category)).size + ' categories' },
@@ -1678,7 +1559,6 @@ function calApptRow(a) {
     </div>
     <div style="text-align:right">
       <span class="status ${stCls}">${a.status}</span>
-      <div class="price mt-1">${money(a.price)}</div>
     </div>
     ${a.status === 'pending' ? `
       <div class="flex gap-2" style="gap:8px">
@@ -1758,7 +1638,6 @@ function dashServices() {
         <h3>${esc(s.name)}</h3>
         <div class="meta">${esc(s.business)} · ${esc(s.category)} · ${minutesLabel(s.duration)}</div>
       </div>
-      <span class="price">${money(s.price)}</span>
       <div class="flex gap-2" style="gap:6px">
         <button class="icon-btn-sm" title="Edit" onclick="App.editService('${s.id}')">${I.pencil}</button>
         <button class="icon-btn-sm danger" title="Delete" onclick="App.deleteService('${s.id}')">${I.trash}</button>
@@ -1925,7 +1804,7 @@ App.confirmBooking = async function (id) {
   if (slotState(date, time, fromISO(date).getDay(), s.business) !== 'available') { toast('That slot is no longer available — pick another.'); return; }
   const appt = {
     id: uid(), serviceId: s.id, business: s.business, serviceName: s.name, category: s.category,
-    price: s.price, duration: s.duration, date, time, customerName,
+    duration: s.duration, date, time, customerName,
     customerId: state.user.id, notes, status: 'pending', createdAt: Date.now(),
   };
   try {
@@ -2251,15 +2130,9 @@ function serviceModal(s) {
           <label for="sv-desc">Description</label>
           <textarea id="sv-desc" name="desc" placeholder="What makes this service special?" required>${isEdit ? esc(s.desc) : ''}</textarea>
         </div>
-        <div class="flex gap-2" style="gap:12px">
-          <div class="field" style="flex:1">
-            <label for="sv-dur">Duration (min)</label>
-            <input id="sv-dur" name="duration" type="number" min="15" max="480" step="15" value="${isEdit ? s.duration : 60}" required />
-          </div>
-          <div class="field" style="flex:1">
-            <label for="sv-price">Price (R)</label>
-            <input id="sv-price" name="price" type="number" min="0" step="0.01" value="${isEdit ? s.price : 50}" required />
-          </div>
+        <div class="field">
+          <label for="sv-dur">Duration (min)</label>
+          <input id="sv-dur" name="duration" type="number" min="15" max="480" step="15" value="${isEdit ? s.duration : 60}" required />
         </div>
         <div class="field">
           <label for="sv-cat">Category</label>
@@ -2315,7 +2188,7 @@ App.saveService = async function (e) {
   const id = fd.get('id');
   const data = {
     name: fd.get('name').trim(), desc: fd.get('desc').trim(),
-    duration: Number(fd.get('duration')), price: Number(fd.get('price')),
+    duration: Number(fd.get('duration')),
     category: fd.get('category'),
   };
   if (id) {
