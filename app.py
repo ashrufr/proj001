@@ -40,7 +40,7 @@ def _send_email(to_email, subject, html_body):
         return False
     try:
         msg = MIMEMultipart("alternative")
-        msg["From"] = GMAIL_SMTP_USER
+        msg["From"] = "HairNet Support <hairnet-support@gmail.com>"
         msg["To"] = to_email
         msg["Subject"] = subject
         msg.attach(MIMEText(html_body, "html"))
@@ -544,6 +544,12 @@ def api_forgot_password():
          style="display:inline-block;background:#E07A5F;color:#fff;padding:12px 28px;border-radius:12px;text-decoration:none;font-weight:600;font-size:15px;margin:16px 0">
         Reset password
       </a>
+      <p style="color:#57534E;font-size:15px;line-height:1.6;margin-top:16px">
+        Or copy and paste this reset token:
+      </p>
+      <div style="background:#F5F5F4;border:1px solid #E7E5E4;border-radius:8px;padding:12px 16px;font-family:monospace;font-size:14px;color:#1C1917;word-break:break-all;margin:8px 0">
+        {token}
+      </div>
       <p style="color:#78716C;font-size:13px;margin-top:24px">
         If you didn't request a password reset, you can safely ignore this email.
       </p>
@@ -591,6 +597,12 @@ def api_business_forgot_password():
              style="display:inline-block;background:#E07A5F;color:#fff;padding:12px 28px;border-radius:12px;text-decoration:none;font-weight:600;font-size:15px;margin:16px 0">
             Reset business password
           </a>
+          <p style="color:#57534E;font-size:15px;line-height:1.6;margin-top:16px">
+            Or copy and paste this reset token:
+          </p>
+          <div style="background:#F5F5F4;border:1px solid #E7E5E4;border-radius:8px;padding:12px 16px;font-family:monospace;font-size:14px;color:#1C1917;word-break:break-all;margin:8px 0">
+            {token}
+          </div>
           <p style="color:#78716C;font-size:13px;margin-top:24px">
             If you didn't request a password reset, you can safely ignore this email.
           </p>
