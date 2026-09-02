@@ -1225,6 +1225,21 @@ def reset_business_password(conn, token, new_password):
 # meta / business settings
 # ---------------------------------------------------------------------------
 @_with_conn
+def get_business_owner_email(conn, business):
+    """Return the email of the business owner, or None if not found."""
+    if not business:
+        return None
+    cursor = conn.cursor()
+    row = cursor.execute(
+        "SELECT u.email FROM Users u "
+        "JOIN Businesses b ON b.owner_id = u.id "
+        "WHERE b.name = ?",
+        (business,),
+    ).fetchone()
+    return row[0] if row else None
+
+
+@_with_conn
 def get_business_name(conn):
     return _meta(conn, "business_name", "My Business")
 

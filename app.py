@@ -9,7 +9,10 @@ import json
 import os
 import re
 import secrets
+import smtplib
 import time
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from urllib.parse import urlencode
 
 import requests as http_requests
@@ -19,6 +22,48 @@ import db
 
 app = Flask(__name__, static_folder="static", static_url_path="")
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", secrets.token_hex(32))
+
+
+# ---------------------------------------------------------------------------
+# Gmail SMTP helper
+# ---------------------------------------------------------------------------
+GMAIL_SMTP_HOST = os.environ.get("GMAIL_SMTP_HOST", "smtp.gmail.com")
+GMAIL_SMTP_PORT = int(os.environ.get("GMAIL_SMTP_PORT", "587"))
+GMAIL_SMTP_USER = os.environ.get("GMAIL_SMTP_USER", "")
+GMAIL_SMTP_PASS = os.environ.get("GMAIL_SMTP_PASS", "")
+
+
+def _send_email(to_email, subject, html_body):
+    """Send an HTML email via Gmail SMTP. Returns True on success, False on failure."""
+    if not GMAIL_SMTP_USER or not GMAIL_SMTP_PASS:
+        print("HairNet: Gmail SMTP not configured — skipping email send.")
+        return False
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["From"] = GMAIL_SMTP_USER
+        msg["To"] = to_email
+        msg["Subject"] = subject
+        msg.attach(MIMEText(html_body, "html"))
+        with smtplib.SMTP(GMAIL_SMTP_HOST, GMAIL_SMTP_PORT, timeout=15) as server:
+            server.ehlo()
+            server.starttls()
+            server.ehlo()
+            server.login(GMAIL_SMTP_USER, GMAIL_SMTP_PASS)
+            server.sendmail(GMAIL_SMTP_USER, to_email, msg.as_string())
+        return True
+    except Exception as exc:
+        print(f"HairNet: failed to send email to {to_email}: {exc}")
+        return False
+
+
+def _reset_link_base():
+    """Build the base URL for password-reset links (scheme + host)."""
+    explicit = os.environ.get("RESET_LINK_BASE")
+    if explicit:
+        return explicit.rstrip("/")
+    host = os.environ.get("WEBSITE_HOSTNAME") or request.host
+    scheme = "https" if os.environ.get("WEBSITE_HOSTNAME") else request.scheme
+    return f"{scheme}://{host}"
 
 # ---------------------------------------------------------------------------
 # HTTPS enforcement (production)
@@ -486,8 +531,26 @@ def api_forgot_password():
     if token is None:
         # Don't reveal whether the email exists
         return jsonify({"ok": True})
-    # In production, send this token via email. For now, return it directly.
-    return jsonify({"ok": True, "token": token})
+    reset_url = f"{_reset_link_base()}/#/reset-password?token={token}"
+    subject = "HairNet — Reset your password"
+    html_body = f"""
+    <div style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:0 auto;padding:32px 20px">
+      <h2 style="color:#1C1917;margin-bottom:8px">Reset your password</h2>
+      <p style="color:#57534E;font-size:15px;line-height:1.6">
+        Click the button below to set a new password for your HairNet account.
+        This link expires in 1 hour.
+      </p>
+      <a href="{reset_url}"
+         style="display:inline-block;background:#E07A5F;color:#fff;padding:12px 28px;border-radius:12px;text-decoration:none;font-weight:600;font-size:15px;margin:16px 0">
+        Reset password
+      </a>
+      <p style="color:#78716C;font-size:13px;margin-top:24px">
+        If you didn't request a password reset, you can safely ignore this email.
+      </p>
+    </div>
+    """
+    _send_email(email, subject, html_body)
+    return jsonify({"ok": True})
 
 
 @app.route("/api/auth/reset-password", methods=["POST"])
@@ -512,7 +575,29 @@ def api_business_forgot_password():
     if token is None:
         # Don't reveal whether the business exists
         return jsonify({"ok": True})
-    return jsonify({"ok": True, "token": token})
+    # Find the business owner's email to send the reset link
+    owner_email = db.get_business_owner_email(business)
+    if owner_email:
+        reset_url = f"{_reset_link_base()}/#/business/reset-password?token={token}"
+        subject = "HairNet — Reset your business password"
+        html_body = f"""
+        <div style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:0 auto;padding:32px 20px">
+          <h2 style="color:#1C1917;margin-bottom:8px">Reset your business password</h2>
+          <p style="color:#57534E;font-size:15px;line-height:1.6">
+            Click the button below to set a new password for <strong>{business}</strong> on HairNet.
+            This link expires in 1 hour.
+          </p>
+          <a href="{reset_url}"
+             style="display:inline-block;background:#E07A5F;color:#fff;padding:12px 28px;border-radius:12px;text-decoration:none;font-weight:600;font-size:15px;margin:16px 0">
+            Reset business password
+          </a>
+          <p style="color:#78716C;font-size:13px;margin-top:24px">
+            If you didn't request a password reset, you can safely ignore this email.
+          </p>
+        </div>
+        """
+        _send_email(owner_email, subject, html_body)
+    return jsonify({"ok": True})
 
 
 @app.route("/api/auth/business/reset-password", methods=["POST"])

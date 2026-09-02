@@ -2031,13 +2031,8 @@ App.doForgotPassword = async function (e) {
   const fd = new FormData(e.target);
   const email = fd.get('email').trim();
   try {
-    const res = await apiClient.forgotPassword(email);
-    if (res.token) {
-      toast('Reset token: ' + res.token);
-      App.go('#/reset-password?token=' + encodeURIComponent(res.token));
-    } else {
-      toast('If an account exists, a reset link has been sent.');
-    }
+    await apiClient.forgotPassword(email);
+    toast('If an account exists, a reset link has been sent to ' + email + '.');
   } catch (err) {
     toast('Something went wrong: ' + err.message);
   }
@@ -2079,13 +2074,8 @@ App.doBusinessForgotPassword = async function (e) {
   const fd = new FormData(e.target);
   const business = fd.get('business').trim();
   try {
-    const res = await apiClient.businessForgotPassword(business);
-    if (res.token) {
-      toast('Reset token: ' + res.token);
-      App.go('#/business/reset-password?token=' + encodeURIComponent(res.token));
-    } else {
-      toast('If that business exists, a reset link has been sent.');
-    }
+    await apiClient.businessForgotPassword(business);
+    toast('If that business exists, a reset link has been sent to the owner.');
   } catch (err) {
     toast('Something went wrong: ' + err.message);
   }
