@@ -914,6 +914,8 @@ function viewForgotPassword() {
 }
 
 function viewResetPassword() {
+  const params = new URLSearchParams(location.hash.split('?')[1] || '');
+  const token = params.get('token') || '';
   return `
   <div class="page container">
     <div class="card form-card" style="padding:34px">
@@ -921,11 +923,11 @@ function viewResetPassword() {
         <span class="avatar-logo" style="width:46px;height:46px;border-radius:14px;background:var(--sage);color:#fff;font-size:18px">${I.shield.replace('18"','22"')}</span>
         <div><h1 style="font-size:21px;font-weight:800;color:var(--stone-900)">Reset password</h1></div>
       </div>
-      <p class="sm" style="margin-bottom:22px">Paste your reset token and choose a new password.</p>
+      <p class="sm" style="margin-bottom:22px">Choose a new password for your account.</p>
       <form onsubmit="App.doResetPassword(event)">
         <div class="field">
           <label for="rp-token">Reset token</label>
-          <input id="rp-token" name="token" type="text" placeholder="Paste your reset token" required />
+          <input id="rp-token" name="token" type="text" value="${esc(token)}" placeholder="Paste your reset token" required />
         </div>
         <div class="field">
           <label for="rp-new">New password</label>
@@ -1357,6 +1359,8 @@ function viewBusinessForgotPasswordForm() {
 }
 
 function viewBusinessResetPasswordForm() {
+  const params = new URLSearchParams(location.hash.split('?')[1] || '');
+  const token = params.get('token') || '';
   return `
   <div class="page container">
     <button class="back-link" onclick="App.go('#/business/signin')">${I.arrowLeft} Back to sign in</button>
@@ -1365,11 +1369,11 @@ function viewBusinessResetPasswordForm() {
         <span class="avatar-logo" style="width:46px;height:46px;border-radius:14px;background:var(--terracotta);color:#fff;font-size:18px">${I.layout.replace('18"','22"')}</span>
         <div><h1 style="font-size:21px;font-weight:800;color:var(--stone-900)">Reset business password</h1></div>
       </div>
-      <p class="sm" style="margin-bottom:22px">Paste your reset token and choose a new business password.</p>
+      <p class="sm" style="margin-bottom:22px">Choose a new password for your business.</p>
       <form onsubmit="App.doBusinessResetPassword(event)">
         <div class="field">
           <label for="bz-rp-token">Reset token</label>
-          <input id="bz-rp-token" name="token" type="text" placeholder="Paste your reset token" required />
+          <input id="bz-rp-token" name="token" type="text" value="${esc(token)}" placeholder="Paste your reset token" required />
         </div>
         <div class="field">
           <label for="bz-rp-new">New password</label>

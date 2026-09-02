@@ -38,9 +38,11 @@ def _send_email(to_email, subject, html_body):
     if not GMAIL_SMTP_USER or not GMAIL_SMTP_PASS:
         print("HairNet: Gmail SMTP not configured — skipping email send.")
         return False
+    sender = "hairnet-support@gmail.com"
     try:
         msg = MIMEMultipart("alternative")
-        msg["From"] = "HairNet Support <hairnet-support@gmail.com>"
+        msg["From"] = f"HairNet Support <{sender}>"
+        msg["Reply-To"] = sender
         msg["To"] = to_email
         msg["Subject"] = subject
         msg.attach(MIMEText(html_body, "html"))
@@ -49,7 +51,7 @@ def _send_email(to_email, subject, html_body):
             server.starttls()
             server.ehlo()
             server.login(GMAIL_SMTP_USER, GMAIL_SMTP_PASS)
-            server.sendmail(GMAIL_SMTP_USER, to_email, msg.as_string())
+            server.sendmail(sender, to_email, msg.as_string())
         return True
     except Exception as exc:
         print(f"HairNet: failed to send email to {to_email}: {exc}")
