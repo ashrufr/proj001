@@ -94,6 +94,7 @@ function emptyState() {
     hours: defaultHours(),
     businessName: 'My Business',
     businessCategory: '',
+    businessContactNumber: '',
     businesses: [],
     ratings: {},
   };
@@ -169,6 +170,7 @@ function normalizeRemote(remote) {
     hours,
     businessName: remote.businessName || 'My Business',
     businessCategory: remote.businessCategory || '',
+    businessContactNumber: remote.businessContactNumber || '',
     businesses: remote.businesses || [],
     ratings: remote.ratings || {},
   };
@@ -2363,7 +2365,9 @@ async function loadInitialState() {
   try {
     const remote = await apiClient.bootstrap();
     if (remote && Array.isArray(remote.services)) {
-      state = normalizeRemote(remote);
+      const merged = normalizeRemote(remote);
+      if (state.user && !merged.user) merged.user = state.user;
+      state = merged;
       persist();
       render();
     }
@@ -2424,6 +2428,7 @@ async function pollCatalog() {
     state.businesses = remote.businesses || [];
     state.hours = hours;
     state.ratings = remote.ratings || {};
+    if (remote.businessContactNumber !== undefined) state.businessContactNumber = remote.businessContactNumber;
     persist();
     const { view } = parseHash();
     if (view === 'browse' || view === 'service' || view === 'home' || view === 'provider') render();
