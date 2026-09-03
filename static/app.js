@@ -378,14 +378,16 @@ function viewHome() {
         <div class="hero-stats">
           ${stats.map(s => `<div class="hero-stat"><div class="num">${s.n}</div><div class="lbl">${s.l}</div></div>`).join('')}
         </div>
+        <div class="hero-photos">
+          <div class="hero-photo hero-photo-1">
+            <img src="https://images.unsplash.com/photo-1560066984-138dadb4c035?w=400&h=500&fit=crop&crop=faces" alt="Hairdresser at work" />
+          </div>
+          <div class="hero-photo hero-photo-2">
+            <img src="https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400&h=500&fit=crop&crop=faces" alt="Styling hair" />
+          </div>
+        </div>
       </div>
       <div class="hero-visual">
-        <div class="hero-photo hero-photo-1">
-          <img src="https://images.unsplash.com/photo-1560066984-138dadb4c035?w=400&h=500&fit=crop&crop=faces" alt="Hairdresser at work" />
-        </div>
-        <div class="hero-photo hero-photo-2">
-          <img src="https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400&h=500&fit=crop&crop=faces" alt="Styling hair" />
-        </div>
         <div class="float-card">
           <span class="ok">${I.check}</span>
           <div><b>Booking confirmed</b><span>Today · 3:30 PM</span></div>
