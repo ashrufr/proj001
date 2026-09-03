@@ -338,7 +338,7 @@ function footerHtml() {
       </div>
     </div>
     <div class="container" style="margin-top:32px;border-top:1px solid var(--stone-200);padding-top:20px">
-      <p style="margin:0">© ${new Date().getFullYear()} ARX Intelligence. All rights reserved. <span class="version">v1.009</span></p>
+      <p style="margin:0">© ${new Date().getFullYear()} ARX Intelligence. All rights reserved. <span class="version">v1.010</span></p>
     </div>
   </footer>`;
 }
@@ -1703,6 +1703,10 @@ function dashAddress() {
     <div class="card" style="padding:24px;max-width:480px">
       <form onsubmit="App.saveAddress(event)">
         <div class="field">
+          <label for="dash-business_name">Business name</label>
+          <input id="dash-business_name" name="business_name" type="text" placeholder="e.g. Riverside Barbershop" value="${esc(state.businessName || '')}" />
+        </div>
+        <div class="field">
           <label for="dash-contact_number">Contact number</label>
           <input id="dash-contact_number" name="contact_number" type="tel" placeholder="(555) 123-4567" value="${esc(biz.contact_number || '')}" />
         </div>
@@ -2270,23 +2274,28 @@ App.saveHours = function () {
 App.saveAddress = async function (e) {
   e.preventDefault();
   const fd = new FormData(e.target);
+  const business_name = (fd.get('business_name') || '').trim();
   const street_address = (fd.get('street_address') || '').trim();
   const city = (fd.get('city') || '').trim();
   const zip_code = (fd.get('zip_code') || '').trim();
   const contact_number = (fd.get('contact_number') || '').trim();
   try {
     await Promise.all([
+      apiClient.saveBusinessName(business_name),
       apiClient.saveBusinessAddress({ street_address, city, zip_code }),
       apiClient.saveBusinessContactNumber({ contact_number }),
     ]);
-    const biz = (state.businesses || []).find(b => b.name === state.businessName);
+    const oldName = state.businessName;
+    state.businessName = business_name;
+    state.businessContactNumber = contact_number;
+    const biz = (state.businesses || []).find(b => b.name === oldName);
     if (biz) {
+      biz.name = business_name;
       biz.street_address = street_address;
       biz.city = city;
       biz.zip_code = zip_code;
       biz.contact_number = contact_number;
     }
-    state.businessContactNumber = contact_number;
     persist();
     toast('Business details saved.');
   } catch (err) {
