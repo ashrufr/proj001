@@ -1017,6 +1017,7 @@ function viewAccount() {
         </div>
       </div>
 
+      ${!u.google_id ? `
       <div class="card form-card" style="padding:34px;margin-top:20px">
         <h2 style="font-size:18px;font-weight:800;color:var(--stone-900);margin-bottom:16px">Change password</h2>
         <form onsubmit="App.changePassword(event)">
@@ -1034,7 +1035,7 @@ function viewAccount() {
           </div>
           <button class="btn btn-primary btn-lg btn-block" type="submit">Update password</button>
         </form>
-      </div>
+      </div>` : ''}
 
       <div class="card form-card" style="padding:34px;margin-top:20px;border:1px solid var(--danger-soft)">
         <h2 style="font-size:18px;font-weight:800;color:var(--stone-900);margin-bottom:8px">Delete account</h2>

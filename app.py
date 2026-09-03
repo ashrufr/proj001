@@ -532,6 +532,8 @@ def api_change_password():
     user = _current_user()
     if not user:
         return jsonify({"error": "not signed in"}), 401
+    if user.get("google_id"):
+        return jsonify({"error": "password changes are not available for Google accounts"}), 400
     data = request.get_json()
     try:
         db.change_password(
@@ -552,6 +554,10 @@ def api_forgot_password():
         return jsonify({"error": "email is required"}), 400
     log = []
     log.append(f"Requested for {email}")
+    if db.is_google_user(email):
+        log.append("User signed up via Google — password reset not available")
+        print(f"HairNet: {log[-1]}")
+        return jsonify({"ok": True, "log": log})
     log.append(f"SMTP user = {GMAIL_SMTP_USER or '(empty)'}")
     log.append(f"SMTP pass set = {bool(GMAIL_SMTP_PASS)}")
     token = db.create_reset_token(email)
@@ -573,13 +579,9 @@ def api_forgot_password():
          style="display:inline-block;background:#E07A5F;color:#fff;padding:12px 28px;border-radius:12px;text-decoration:none;font-weight:600;font-size:15px;margin:16px 0">
         Reset password
       </a>
-      <p style="color:#57534E;font-size:15px;line-height:1.6;margin-top:20px">
-        Or copy this reset token:
-      </p>
       <div onclick="this.select()" style="background:#F5F5F4;border:2px dashed #D6D3D1;border-radius:8px;padding:14px 18px;font-family:'Courier New',monospace;font-size:15px;color:#1C1917;word-break:break-all;margin:12px 0;cursor:text;user-select:all">
         {token}
       </div>
-      <p style="color:#78716C;font-size:13px;margin-top:8px">Click the token above to select it, then Ctrl+C to copy.</p>
       <p style="color:#78716C;font-size:13px;margin-top:24px">
         If you didn't request a password reset, you can safely ignore this email.
       </p>
@@ -638,13 +640,9 @@ def api_business_forgot_password():
          style="display:inline-block;background:#E07A5F;color:#fff;padding:12px 28px;border-radius:12px;text-decoration:none;font-weight:600;font-size:15px;margin:16px 0">
         Reset business password
       </a>
-      <p style="color:#57534E;font-size:15px;line-height:1.6;margin-top:20px">
-        Or copy this reset token:
-      </p>
       <div onclick="this.select()" style="background:#F5F5F4;border:2px dashed #D6D3D1;border-radius:8px;padding:14px 18px;font-family:'Courier New',monospace;font-size:15px;color:#1C1917;word-break:break-all;margin:12px 0;cursor:text;user-select:all">
         {token}
       </div>
-      <p style="color:#78716C;font-size:13px;margin-top:8px">Click the token above to select it, then Ctrl+C to copy.</p>
       <p style="color:#78716C;font-size:13px;margin-top:24px">
         If you didn't request a password reset, you can safely ignore this email.
       </p>

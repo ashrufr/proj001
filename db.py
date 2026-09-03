@@ -676,7 +676,8 @@ def _validate_email(email):
 
 def _user_to_dict(row_dict):
     return {"id": row_dict["id"], "name": row_dict["name"],
-            "email": row_dict["email"], "role": row_dict["role"]}
+            "email": row_dict["email"], "role": row_dict["role"],
+            "google_id": bool(row_dict.get("google_id"))}
 
 
 def _create_session_token(conn, user_id):
@@ -886,6 +887,16 @@ def delete_user(conn, user_id):
 # ---------------------------------------------------------------------------
 # password reset tokens
 # ---------------------------------------------------------------------------
+@_with_conn
+def is_google_user(conn, email):
+    """Return True if the user with the given email signed up via Google."""
+    email = (email or "").strip().lower()
+    row = conn.cursor().execute(
+        "SELECT google_id FROM Users WHERE email = ?", (email,)
+    ).fetchone()
+    return bool(row and row[0])
+
+
 @_with_conn
 def create_reset_token(conn, email):
     """Create a password reset token for the user with the given email.
