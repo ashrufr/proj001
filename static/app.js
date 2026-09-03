@@ -377,14 +377,16 @@ function viewHome() {
           <div class="hero-photo hero-photo-2">
             <img src="https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400&h=500&fit=crop&crop=faces" alt="Styling hair" />
           </div>
-        </div>
-        <p class="lead">Find and book with trusted salons, barbers and hairdressers in seconds. Providers manage everything from services to schedules in one calm place.</p>
-        <div class="hero-cta">
-          <button class="btn btn-primary btn-lg" onclick="App.go('#/browse')">Browse services ${I.arrowRight}</button>
-          <button class="btn btn-outline btn-lg" onclick="App.go('#/account')">I run a business</button>
-        </div>
-        <div class="hero-stats">
-          ${stats.map(s => `<div class="hero-stat"><div class="num">${s.n}</div><div class="lbl">${s.l}</div></div>`).join('')}
+          <div class="hero-photo-text">
+            <p class="lead">Find and book with trusted salons, barbers and hairdressers in seconds. Providers manage everything from services to schedules in one calm place.</p>
+            <div class="hero-cta">
+              <button class="btn btn-primary btn-lg" onclick="App.go('#/browse')">Browse services ${I.arrowRight}</button>
+              <button class="btn btn-outline btn-lg" onclick="App.go('#/account')">I run a business</button>
+            </div>
+            <div class="hero-stats">
+              ${stats.map(s => `<div class="hero-stat"><div class="num">${s.n}</div><div class="lbl">${s.l}</div></div>`).join('')}
+            </div>
+          </div>
         </div>
       </div>
       <div class="hero-visual">
