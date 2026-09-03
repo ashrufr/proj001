@@ -1354,13 +1354,13 @@ function viewBusinessForgotPasswordForm() {
         <span class="avatar-logo" style="width:46px;height:46px;border-radius:14px;background:var(--terracotta);color:#fff;font-size:18px">${I.layout.replace('18"','22"')}</span>
         <div><h1 style="font-size:21px;font-weight:800;color:var(--stone-900)">Forgot business password?</h1></div>
       </div>
-      <p class="sm" style="margin-bottom:22px">Enter your business name and we'll generate a reset token for you.</p>
+      <p class="sm" style="margin-bottom:22px">Enter the owner email and we'll send a reset link.</p>
       <form onsubmit="App.doBusinessForgotPassword(event)">
         <div class="field">
-          <label for="bz-fp-biz">Business name</label>
-          <input id="bz-fp-biz" name="business" type="text" placeholder="e.g. Riverside Barbershop" required />
+          <label for="bz-fp-email">Owner email</label>
+          <input id="bz-fp-email" name="email" type="email" placeholder="owner@example.com" required />
         </div>
-        <button class="btn btn-primary btn-lg btn-block" type="submit">Get reset token</button>
+        <button class="btn btn-primary btn-lg btn-block" type="submit">Send reset link</button>
       </form>
       <p class="sm center mt-2"><a href="#" onclick="App.go('#/business/signin');return false;">Back to sign in</a></p>
     </div>
@@ -2104,16 +2104,16 @@ App.googleSignIn = async function (handler) {
 App.doBusinessForgotPassword = async function (e) {
   e.preventDefault();
   const fd = new FormData(e.target);
-  const business = fd.get('business').trim();
-  console.log('[HairNet] Business forgot password requested for:', business);
+  const email = fd.get('email').trim();
+  console.log('[HairNet] Business forgot password requested for:', email);
   try {
-    const res = await apiClient.businessForgotPassword(business);
+    const res = await apiClient.businessForgotPassword(email);
     if (res.log) {
       console.group('[HairNet] Business forgot password log:');
       res.log.forEach(line => console.log(line));
       console.groupEnd();
     }
-    toast('If that business exists, a reset link has been sent to the owner.');
+    toast('If an account exists with that email, a reset link has been sent.');
   } catch (err) {
     console.error('[HairNet] Business forgot password error:', err);
     toast('Something went wrong: ' + err.message);

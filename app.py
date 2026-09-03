@@ -634,23 +634,22 @@ def api_reset_password():
 @app.route("/api/auth/business/forgot-password", methods=["POST"])
 def api_business_forgot_password():
     data = request.get_json()
-    business = (data.get("business") or "").strip()
-    if not business:
-        return jsonify({"error": "business name is required"}), 400
+    email = (data.get("email") or "").strip().lower()
+    if not email:
+        return jsonify({"error": "email is required"}), 400
     log = []
-    log.append(f"Requested for business: {business}")
+    log.append(f"Requested for email: {email}")
+    business = db.get_business_by_owner_email(email)
+    if not business:
+        log.append("No business found for this email")
+        print(f"HairNet: {log[-1]}")
+        return jsonify({"ok": True, "log": log})
     token = db.create_business_reset_token(business)
     if token is None:
-        log.append("create_business_reset_token returned None — business not found")
+        log.append("create_business_reset_token returned None")
         print(f"HairNet: {log[-1]}")
         return jsonify({"ok": True, "log": log})
     log.append(f"Token created: {token[:12]}...")
-    owner_email = db.get_business_owner_email(business)
-    if not owner_email:
-        log.append("No owner email found for business")
-        print(f"HairNet: {log[-1]}")
-        return jsonify({"ok": True, "log": log})
-    log.append(f"Owner email: {owner_email}")
     reset_url = f"{_reset_link_base()}/#/business/reset-password?token={token}"
     subject = "HairNet — Reset your business password"
     html_body = f"""
@@ -672,7 +671,7 @@ def api_business_forgot_password():
       </p>
     </div>
     """
-    sent = _send_email(owner_email, subject, html_body, log=log)
+    sent = _send_email(email, subject, html_body, log=log)
     log.append(f"Done (sent={sent})")
     print(f"HairNet: === BUSINESS FORGOT PASSWORD ===")
     for line in log:

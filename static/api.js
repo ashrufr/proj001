@@ -52,7 +52,7 @@ const API = (() => {
     googleSignupStatus: () => req('GET', '/api/auth/google/signup-status'),
     googleConfirm: () => req('POST', '/api/auth/google/confirm'),
     googleBusinessSession: () => req('GET', '/api/auth/google/business-session'),
-    businessForgotPassword: (business) => req('POST', '/api/auth/business/forgot-password', { business }),
+    businessForgotPassword: (email) => req('POST', '/api/auth/business/forgot-password', { email }),
     businessResetPassword: (d) => req('POST', '/api/auth/business/reset-password', d),
 
     createReview: (d) => req('POST', '/api/reviews', d),

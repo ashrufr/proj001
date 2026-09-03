@@ -1304,6 +1304,21 @@ def get_business_owner_email(conn, business):
 
 
 @_with_conn
+def get_business_by_owner_email(conn, email):
+    """Return the business name owned by the given email, or None."""
+    email = (email or "").strip().lower()
+    if not email:
+        return None
+    row = conn.cursor().execute(
+        "SELECT b.name FROM Businesses b "
+        "JOIN Users u ON b.owner_id = u.id "
+        "WHERE u.email = ?",
+        (email,),
+    ).fetchone()
+    return row[0] if row else None
+
+
+@_with_conn
 def get_business_name(conn):
     return _meta(conn, "business_name", "My Business")
 
