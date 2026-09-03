@@ -960,6 +960,11 @@ function viewOAuthComplete() {
         App.go('#/account');
         return;
       }
+      if (s.emailTaken) {
+        toast('An account with ' + s.email + ' already exists. Please sign in with your password instead.');
+        App.go('#/account');
+        return;
+      }
       if (s.handler === 'provider') {
         if (s.existing) {
           const res = await apiClient.googleConfirm();

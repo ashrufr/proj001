@@ -864,12 +864,16 @@ def api_google_signup_status():
     business_name = None
     if existing and existing.get("role") == "provider":
         business_name = db.get_user_business_name(existing["id"])
+    email_taken = False
+    if not existing:
+        email_taken = db.is_email_taken(pending.get("email", ""))
     return jsonify({
         "pending": True,
         "handler": handler,
         "name": pending.get("name"),
         "email": pending.get("email"),
         "existing": existing is not None,
+        "emailTaken": email_taken,
         "businessName": business_name,
     })
 

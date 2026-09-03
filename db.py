@@ -1041,6 +1041,16 @@ def find_user_by_google_or_email(conn, google_id, email):
 
 
 @_with_conn
+def is_email_taken(conn, email):
+    """Return True if the email is already registered to any user."""
+    email = (email or "").strip().lower()
+    if not email:
+        return False
+    row = conn.cursor().execute("SELECT id FROM Users WHERE email = ?", (email,)).fetchone()
+    return row is not None
+
+
+@_with_conn
 def link_google_id(conn, user_id, google_id):
     """Link a Google account to an existing local user."""
     if not user_id or not google_id:
