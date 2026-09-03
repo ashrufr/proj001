@@ -380,6 +380,12 @@ function viewHome() {
         </div>
       </div>
       <div class="hero-visual">
+        <div class="hero-photo hero-photo-1">
+          <img src="https://images.unsplash.com/photo-1560066984-138dadb4c035?w=400&h=500&fit=crop&crop=faces" alt="Hairdresser at work" />
+        </div>
+        <div class="hero-photo hero-photo-2">
+          <img src="https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400&h=500&fit=crop&crop=faces" alt="Styling hair" />
+        </div>
         <div class="float-card">
           <span class="ok">${I.check}</span>
           <div><b>Booking confirmed</b><span>Today · 3:30 PM</span></div>
