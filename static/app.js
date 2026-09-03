@@ -366,8 +366,8 @@ function viewHome() {
 
   return `
   <section class="hero">
-    <div class="container">
-      <div class="hero-top">
+    <div class="container hero-grid">
+      <div>
         <span class="badge-pill">${I.star} Trusted by providers & customers</span>
         <h1>Find &amp; book services,<br/><span class="accent">any time.</span></h1>
         <p class="lead">Find and book with trusted salons, barbers and hairdressers in seconds. Providers manage everything from services to schedules in one calm place.</p>
@@ -381,10 +381,10 @@ function viewHome() {
       </div>
       <div class="hero-visual">
         <div class="hero-photo hero-photo-1">
-          <img src="https://images.unsplash.com/photo-1560066984-138dadb4c035?w=500&h=600&fit=crop&crop=faces" alt="Hairdresser at work" />
+          <img src="https://images.unsplash.com/photo-1560066984-138dadb4c035?w=400&h=500&fit=crop&crop=faces" alt="Hairdresser at work" />
         </div>
         <div class="hero-photo hero-photo-2">
-          <img src="https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=500&h=600&fit=crop&crop=faces" alt="Styling hair" />
+          <img src="https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400&h=500&fit=crop&crop=faces" alt="Styling hair" />
         </div>
         <div class="float-card">
           <span class="ok">${I.check}</span>

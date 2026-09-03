@@ -133,10 +133,7 @@ a { color: inherit; text-decoration: none; }
 
 /* ============ Landing / Hero ============ */
 .hero { padding: 64px 0 72px; }
-.hero-top { text-align: center; max-width: 640px; margin: 0 auto 48px; }
-.hero-top p.lead { margin-left: auto; margin-right: auto; }
-.hero-top .hero-cta { justify-content: center; }
-.hero-top .hero-stats { justify-content: center; }
+.hero-grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 56px; align-items: center; }
 
 .badge-pill {
   display: inline-flex; align-items: center; gap: 8px;
@@ -172,7 +169,7 @@ a { color: inherit; text-decoration: none; }
 .hero-stat .lbl { font-size: 13px; color: var(--stone-500); font-weight: 500; }
 
 /* Hero mockup card */
-.hero-visual { position: relative; max-width: 700px; margin: 0 auto; height: 420px; }
+.hero-visual { position: relative; }
 .hero-photo {
   position: absolute;
   border-radius: 20px;
@@ -185,13 +182,13 @@ a { color: inherit; text-decoration: none; }
   display: block;
 }
 .hero-photo-1 {
-  width: 300px; height: 360px;
-  top: 0; left: 0;
+  width: 220px; height: 260px;
+  top: -30px; left: 10%;
   transform: rotate(-4deg);
 }
 .hero-photo-2 {
-  width: 280px; height: 340px;
-  top: 20px; right: 0;
+  width: 200px; height: 240px;
+  top: -10px; right: 0;
   transform: rotate(3deg);
 }
 .mockup {
