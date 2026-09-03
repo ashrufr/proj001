@@ -45,21 +45,23 @@ def _send_email(to_email, subject, html_body):
         return False
     try:
         msg = MIMEMultipart("alternative")
-        msg["From"] = f"HairNet Support <{GMAIL_SMTP_USER}>"
-        msg["Reply-To"] = "hairnet-support@gmail.com"
+        msg["From"] = GMAIL_SMTP_USER
         msg["To"] = to_email
         msg["Subject"] = subject
         msg.attach(MIMEText(html_body, "html"))
-        with smtplib.SMTP(GMAIL_SMTP_HOST, GMAIL_SMTP_PORT, timeout=15) as server:
+        print(f"HairNet: connecting to {GMAIL_SMTP_HOST}:{GMAIL_SMTP_PORT} ...")
+        with smtplib.SMTP(GMAIL_SMTP_HOST, GMAIL_SMTP_PORT, timeout=30) as server:
             server.ehlo()
             server.starttls()
             server.ehlo()
+            print(f"HairNet: logging in as {GMAIL_SMTP_USER} ...")
             server.login(GMAIL_SMTP_USER, GMAIL_SMTP_PASS)
-            server.sendmail(GMAIL_SMTP_USER, to_email, msg.as_string())
-        print(f"HairNet: email sent to {to_email}")
+            print(f"HairNet: sending email to {to_email} ...")
+            server.sendmail(GMAIL_SMTP_USER, [to_email], msg.as_string())
+        print(f"HairNet: email sent successfully to {to_email}")
         return True
     except Exception as exc:
-        print(f"HairNet: failed to send email to {to_email}: {exc}")
+        print(f"HairNet: FAILED to send email to {to_email}: {exc}")
         return False
 
 
@@ -534,12 +536,14 @@ def api_forgot_password():
     email = (data.get("email") or "").strip()
     if not email:
         return jsonify({"error": "email is required"}), 400
-    print(f"HairNet: forgot-password requested for {email}")
+    print(f"HairNet: === FORGOT PASSWORD for {email} ===")
+    print(f"HairNet: SMTP user = {GMAIL_SMTP_USER or '(empty)'}")
+    print(f"HairNet: SMTP pass set = {bool(GMAIL_SMTP_PASS)}")
     token = db.create_reset_token(email)
     if token is None:
-        print(f"HairNet: no user found for {email}")
+        print(f"HairNet: create_reset_token returned None — user not found in DB for {email}")
         return jsonify({"ok": True})
-    print(f"HairNet: reset token created for {email}: {token[:8]}...")
+    print(f"HairNet: token created: {token[:12]}...")
     reset_url = f"{_reset_link_base()}/#/reset-password?token={token}"
     subject = "HairNet — Reset your password"
     html_body = f"""
@@ -566,7 +570,7 @@ def api_forgot_password():
     </div>
     """
     sent = _send_email(email, subject, html_body)
-    print(f"HairNet: email send result: {sent}")
+    print(f"HairNet: === FORGOT PASSWORD DONE (sent={sent}) ===")
     return jsonify({"ok": True})
 
 
@@ -855,6 +859,39 @@ def api_init_db():
     """Create any missing database tables/columns. Idempotent and safe to call."""
     db.init_db()
     return jsonify({"ok": True})
+
+
+@app.route("/api/debug/smtp")
+def api_debug_smtp():
+    """Debug: check SMTP config and send a test email."""
+    config = {
+        "host": GMAIL_SMTP_HOST,
+        "port": GMAIL_SMTP_PORT,
+        "user": GMAIL_SMTP_USER or "(not set)",
+        "pass_set": bool(GMAIL_SMTP_PASS),
+    }
+    if not GMAIL_SMTP_USER or not GMAIL_SMTP_PASS:
+        return jsonify({"config": config, "error": "GMAIL_SMTP_USER or GMAIL_SMTP_PASS not set"})
+    try:
+        with smtplib.SMTP(GMAIL_SMTP_HOST, GMAIL_SMTP_PORT, timeout=15) as server:
+            server.ehlo()
+            server.starttls()
+            server.ehlo()
+            server.login(GMAIL_SMTP_USER, GMAIL_SMTP_PASS)
+        return jsonify({"config": config, "smtp_login": "ok"})
+    except Exception as exc:
+        return jsonify({"config": config, "smtp_login": str(exc)})
+
+
+@app.route("/api/debug/send-test-email", methods=["POST"])
+def api_debug_send_test_email():
+    """Debug: send a test email to verify SMTP works."""
+    data = request.get_json() or {}
+    to_email = data.get("email")
+    if not to_email:
+        return jsonify({"error": "email required"}), 400
+    sent = _send_email(to_email, "HairNet — Test email", "<p>If you see this, SMTP is working.</p>")
+    return jsonify({"sent": sent, "to": to_email})
 
 
 # Ensure the schema (and any migrations, e.g. Businesses.category) exists before
