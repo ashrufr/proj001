@@ -197,6 +197,7 @@ def api_bootstrap():
             if business:
                 state["businessName"] = business
                 state["businessCategory"] = db.get_business_category(business)
+                state["businessContactNumber"] = db.get_business_contact_number(business)
         return jsonify(state)
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500
@@ -363,6 +364,17 @@ def api_save_business_address():
     city = (data.get("city") or "").strip()
     zip_code = (data.get("zip_code") or "").strip()
     db.update_business_address(business, street_address=street_address, city=city, zip_code=zip_code)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/business-contact-number", methods=["PUT"])
+def api_save_business_contact_number():
+    user, business = _require_provider()
+    if not user:
+        return jsonify({"error": "only signed-in business owners can update the contact number"}), 403
+    data = request.get_json() or {}
+    contact_number = (data.get("contact_number") or "").strip()
+    db.update_business_contact_number(business, contact_number=contact_number)
     return jsonify({"ok": True})
 
 

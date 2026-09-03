@@ -109,6 +109,7 @@ CREATE TABLE Businesses (
   street_address NVARCHAR(300) NOT NULL DEFAULT '',
   city NVARCHAR(100) NOT NULL DEFAULT '',
   zip_code NVARCHAR(20) NOT NULL DEFAULT '',
+  contact_number NVARCHAR(30) NOT NULL DEFAULT '',
   created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
 );
 
@@ -126,6 +127,9 @@ ALTER TABLE Businesses ADD city NVARCHAR(100) NOT NULL DEFAULT '';
 
 IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Businesses') AND name = 'zip_code')
 ALTER TABLE Businesses ADD zip_code NVARCHAR(20) NOT NULL DEFAULT '';
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Businesses') AND name = 'contact_number')
+ALTER TABLE Businesses ADD contact_number NVARCHAR(30) NOT NULL DEFAULT '';
 
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Users')
 CREATE TABLE Users (
@@ -330,6 +334,20 @@ def get_business_category(conn, business):
 
 
 @_with_conn
+def get_business_contact_number(conn, business):
+    """Return the contact number of a business (by name), or ''."""
+    if not business:
+        return ""
+    cursor = conn.cursor()
+    if not _has_column(conn, "Businesses", "contact_number"):
+        return ""
+    row = cursor.execute(
+        "SELECT contact_number FROM Businesses WHERE name = ?", (business,)
+    ).fetchone()
+    return (row[0] or "") if row else ""
+
+
+@_with_conn
 def list_businesses(conn):
     """Return every real business with its category and address, for the public directory.
 
@@ -339,6 +357,15 @@ def list_businesses(conn):
     cursor = conn.cursor()
     if _has_column(conn, "Businesses", "category"):
         has_addr = _has_column(conn, "Businesses", "street_address")
+        has_contact = _has_column(conn, "Businesses", "contact_number")
+        if has_addr and has_contact:
+            rows = cursor.execute(
+                "SELECT name, category, street_address, city, zip_code, contact_number FROM Businesses "
+                "WHERE name <> 'My Business' ORDER BY name"
+            ).fetchall()
+            return [{"name": r[0], "category": r[1] or "",
+                      "street_address": r[2] or "", "city": r[3] or "", "zip_code": r[4] or "",
+                      "contact_number": r[5] or ""} for r in rows]
         if has_addr:
             rows = cursor.execute(
                 "SELECT name, category, street_address, city, zip_code FROM Businesses "
@@ -1109,6 +1136,22 @@ def update_business_address(conn, business, street_address=None, city=None, zip_
         "UPDATE Businesses SET street_address = ?, city = ?, zip_code = ? WHERE id = ?",
         (street_address or "", city or "", zip_code or "", bid),
     )
+    return True
+
+
+@_with_conn
+def update_business_contact_number(conn, business, contact_number=None):
+    """Update the contact number for a business."""
+    cursor = conn.cursor()
+    row = cursor.execute("SELECT id FROM Businesses WHERE name = ?", (business,)).fetchone()
+    if not row:
+        return False
+    bid = row[0]
+    if _has_column(conn, "Businesses", "contact_number"):
+        cursor.execute(
+            "UPDATE Businesses SET contact_number = ? WHERE id = ?",
+            (contact_number or "", bid),
+        )
     return True
 
 

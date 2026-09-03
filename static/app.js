@@ -31,6 +31,7 @@ const I = {
   logOut: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></svg>',
   chevRight: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>',
   map: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>',
+  phone: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
   star: '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/></svg>',
 };
 
@@ -1478,7 +1479,7 @@ function viewProvider(tab) {
     { id: 'appointments', label: 'Appointments', icon: I.calendar },
     { id: 'services', label: 'Services', icon: I.layers },
     { id: 'hours', label: 'Working hours', icon: I.clock },
-    { id: 'address', label: 'Business address', icon: I.map },
+    { id: 'address', label: 'Business details', icon: I.map },
   ].map(t => `<button class="tab ${cur === t.id ? 'active' : ''}" onclick="App.go('#/provider/${t.id}')">${t.icon} ${t.label}</button>`).join('');
 
   const body = {
@@ -1496,6 +1497,7 @@ function viewProvider(tab) {
         <div>
           <h1>${esc(state.businessName)}</h1>
           <p>${state.businessCategory ? esc(state.businessCategory) + ' — ' : ''}Manage your services, hours and bookings.</p>
+          ${state.businessContactNumber ? `<p class="sm" style="margin-top:4px;color:var(--stone-600)">${I.phone ? I.phone + ' ' : ''}${esc(state.businessContactNumber)}</p>` : ''}
         </div>
         <span class="meta-chip" style="background:var(--sage-soft);color:var(--sage-deep)">${esc(state.businessName)}</span>
       </div>
@@ -1696,10 +1698,14 @@ function dashAddress() {
   const biz = (state.businesses || []).find(b => b.name === state.businessName) || {};
   return `
     <div class="row-head">
-      <div><h2>Business address</h2><p>Set your business location so customers can get directions via Google Maps.</p></div>
+      <div><h2>Business details</h2><p>Set your business location and contact information so customers can reach you.</p></div>
     </div>
     <div class="card" style="padding:24px;max-width:480px">
       <form onsubmit="App.saveAddress(event)">
+        <div class="field">
+          <label for="dash-contact_number">Contact number</label>
+          <input id="dash-contact_number" name="contact_number" type="tel" placeholder="(555) 123-4567" value="${esc(biz.contact_number || '')}" />
+        </div>
         <div class="field">
           <label for="dash-street_address">Street address</label>
           <input id="dash-street_address" name="street_address" type="text" placeholder="123 Main St" value="${esc(biz.street_address || '')}" />
@@ -1715,7 +1721,7 @@ function dashAddress() {
           </div>
         </div>
         <div style="display:flex;justify-content:flex-end;margin-top:18px">
-          <button class="btn btn-navy" type="submit">${I.check} Save address</button>
+          <button class="btn btn-navy" type="submit">${I.check} Save details</button>
         </div>
       </form>
     </div>`;
@@ -2267,18 +2273,24 @@ App.saveAddress = async function (e) {
   const street_address = (fd.get('street_address') || '').trim();
   const city = (fd.get('city') || '').trim();
   const zip_code = (fd.get('zip_code') || '').trim();
+  const contact_number = (fd.get('contact_number') || '').trim();
   try {
-    await apiClient.saveBusinessAddress({ street_address, city, zip_code });
+    await Promise.all([
+      apiClient.saveBusinessAddress({ street_address, city, zip_code }),
+      apiClient.saveBusinessContactNumber({ contact_number }),
+    ]);
     const biz = (state.businesses || []).find(b => b.name === state.businessName);
     if (biz) {
       biz.street_address = street_address;
       biz.city = city;
       biz.zip_code = zip_code;
+      biz.contact_number = contact_number;
     }
+    state.businessContactNumber = contact_number;
     persist();
-    toast('Business address saved.');
+    toast('Business details saved.');
   } catch (err) {
-    toast('Could not save address: ' + err.message);
+    toast('Could not save details: ' + err.message);
   }
 };
 
