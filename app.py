@@ -38,10 +38,14 @@ else:
     print("HairNet: WARNING — GMAIL_SMTP_USER not set, emails will not be sent")
 
 
-def _send_email(to_email, subject, html_body):
+def _send_email(to_email, subject, html_body, log=None):
     """Send an HTML email via Gmail SMTP. Returns True on success, False on failure."""
+    if log is None:
+        log = []
     if not GMAIL_SMTP_USER or not GMAIL_SMTP_PASS:
-        print("HairNet: Gmail SMTP not configured — skipping email send.")
+        msg = "Gmail SMTP not configured — GMAIL_SMTP_USER or GMAIL_SMTP_PASS not set"
+        print(f"HairNet: {msg}")
+        log.append(msg)
         return False
     try:
         msg = MIMEMultipart("alternative")
@@ -49,19 +53,29 @@ def _send_email(to_email, subject, html_body):
         msg["To"] = to_email
         msg["Subject"] = subject
         msg.attach(MIMEText(html_body, "html"))
-        print(f"HairNet: connecting to {GMAIL_SMTP_HOST}:{GMAIL_SMTP_PORT} ...")
+        step = f"Connecting to {GMAIL_SMTP_HOST}:{GMAIL_SMTP_PORT} ..."
+        print(f"HairNet: {step}")
+        log.append(step)
         with smtplib.SMTP(GMAIL_SMTP_HOST, GMAIL_SMTP_PORT, timeout=30) as server:
             server.ehlo()
             server.starttls()
             server.ehlo()
-            print(f"HairNet: logging in as {GMAIL_SMTP_USER} ...")
+            step = f"Logging in as {GMAIL_SMTP_USER} ..."
+            print(f"HairNet: {step}")
+            log.append(step)
             server.login(GMAIL_SMTP_USER, GMAIL_SMTP_PASS)
-            print(f"HairNet: sending email to {to_email} ...")
+            step = f"Sending email to {to_email} ..."
+            print(f"HairNet: {step}")
+            log.append(step)
             server.sendmail(GMAIL_SMTP_USER, [to_email], msg.as_string())
-        print(f"HairNet: email sent successfully to {to_email}")
+        step = f"Email sent successfully to {to_email}"
+        print(f"HairNet: {step}")
+        log.append(step)
         return True
     except Exception as exc:
-        print(f"HairNet: FAILED to send email to {to_email}: {exc}")
+        step = f"FAILED to send email to {to_email}: {exc}"
+        print(f"HairNet: {step}")
+        log.append(step)
         return False
 
 
@@ -536,14 +550,16 @@ def api_forgot_password():
     email = (data.get("email") or "").strip()
     if not email:
         return jsonify({"error": "email is required"}), 400
-    print(f"HairNet: === FORGOT PASSWORD for {email} ===")
-    print(f"HairNet: SMTP user = {GMAIL_SMTP_USER or '(empty)'}")
-    print(f"HairNet: SMTP pass set = {bool(GMAIL_SMTP_PASS)}")
+    log = []
+    log.append(f"Requested for {email}")
+    log.append(f"SMTP user = {GMAIL_SMTP_USER or '(empty)'}")
+    log.append(f"SMTP pass set = {bool(GMAIL_SMTP_PASS)}")
     token = db.create_reset_token(email)
     if token is None:
-        print(f"HairNet: create_reset_token returned None — user not found in DB for {email}")
-        return jsonify({"ok": True})
-    print(f"HairNet: token created: {token[:12]}...")
+        log.append("create_reset_token returned None — no user found in DB")
+        print(f"HairNet: {log[-1]}")
+        return jsonify({"ok": True, "log": log})
+    log.append(f"Token created: {token[:12]}...")
     reset_url = f"{_reset_link_base()}/#/reset-password?token={token}"
     subject = "HairNet — Reset your password"
     html_body = f"""
@@ -569,9 +585,12 @@ def api_forgot_password():
       </p>
     </div>
     """
-    sent = _send_email(email, subject, html_body)
-    print(f"HairNet: === FORGOT PASSWORD DONE (sent={sent}) ===")
-    return jsonify({"ok": True})
+    sent = _send_email(email, subject, html_body, log=log)
+    log.append(f"Done (sent={sent})")
+    print(f"HairNet: === FORGOT PASSWORD ===")
+    for line in log:
+        print(f"  {line}")
+    return jsonify({"ok": True, "log": log})
 
 
 @app.route("/api/auth/reset-password", methods=["POST"])
@@ -592,40 +611,51 @@ def api_business_forgot_password():
     business = (data.get("business") or "").strip()
     if not business:
         return jsonify({"error": "business name is required"}), 400
+    log = []
+    log.append(f"Requested for business: {business}")
     token = db.create_business_reset_token(business)
     if token is None:
-        # Don't reveal whether the business exists
-        return jsonify({"ok": True})
-    # Find the business owner's email to send the reset link
+        log.append("create_business_reset_token returned None — business not found")
+        print(f"HairNet: {log[-1]}")
+        return jsonify({"ok": True, "log": log})
+    log.append(f"Token created: {token[:12]}...")
     owner_email = db.get_business_owner_email(business)
-    if owner_email:
-        reset_url = f"{_reset_link_base()}/#/business/reset-password?token={token}"
-        subject = "HairNet — Reset your business password"
-        html_body = f"""
-        <div style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:0 auto;padding:32px 20px">
-          <h2 style="color:#1C1917;margin-bottom:8px">Reset your business password</h2>
-          <p style="color:#57534E;font-size:15px;line-height:1.6">
-            Click the button below to set a new password for <strong>{business}</strong> on HairNet.
-            This link expires in 1 hour.
-          </p>
-          <a href="{reset_url}"
-             style="display:inline-block;background:#E07A5F;color:#fff;padding:12px 28px;border-radius:12px;text-decoration:none;font-weight:600;font-size:15px;margin:16px 0">
-            Reset business password
-          </a>
-          <p style="color:#57534E;font-size:15px;line-height:1.6;margin-top:20px">
-            Or copy this reset token:
-          </p>
-          <div onclick="this.select()" style="background:#F5F5F4;border:2px dashed #D6D3D1;border-radius:8px;padding:14px 18px;font-family:'Courier New',monospace;font-size:15px;color:#1C1917;word-break:break-all;margin:12px 0;cursor:text;user-select:all">
-            {token}
-          </div>
-          <p style="color:#78716C;font-size:13px;margin-top:8px">Click the token above to select it, then Ctrl+C to copy.</p>
-          <p style="color:#78716C;font-size:13px;margin-top:24px">
-            If you didn't request a password reset, you can safely ignore this email.
-          </p>
-        </div>
-        """
-        _send_email(owner_email, subject, html_body)
-    return jsonify({"ok": True})
+    if not owner_email:
+        log.append("No owner email found for business")
+        print(f"HairNet: {log[-1]}")
+        return jsonify({"ok": True, "log": log})
+    log.append(f"Owner email: {owner_email}")
+    reset_url = f"{_reset_link_base()}/#/business/reset-password?token={token}"
+    subject = "HairNet — Reset your business password"
+    html_body = f"""
+    <div style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:0 auto;padding:32px 20px">
+      <h2 style="color:#1C1917;margin-bottom:8px">Reset your business password</h2>
+      <p style="color:#57534E;font-size:15px;line-height:1.6">
+        Click the button below to set a new password for <strong>{business}</strong> on HairNet.
+        This link expires in 1 hour.
+      </p>
+      <a href="{reset_url}"
+         style="display:inline-block;background:#E07A5F;color:#fff;padding:12px 28px;border-radius:12px;text-decoration:none;font-weight:600;font-size:15px;margin:16px 0">
+        Reset business password
+      </a>
+      <p style="color:#57534E;font-size:15px;line-height:1.6;margin-top:20px">
+        Or copy this reset token:
+      </p>
+      <div onclick="this.select()" style="background:#F5F5F4;border:2px dashed #D6D3D1;border-radius:8px;padding:14px 18px;font-family:'Courier New',monospace;font-size:15px;color:#1C1917;word-break:break-all;margin:12px 0;cursor:text;user-select:all">
+        {token}
+      </div>
+      <p style="color:#78716C;font-size:13px;margin-top:8px">Click the token above to select it, then Ctrl+C to copy.</p>
+      <p style="color:#78716C;font-size:13px;margin-top:24px">
+        If you didn't request a password reset, you can safely ignore this email.
+      </p>
+    </div>
+    """
+    sent = _send_email(owner_email, subject, html_body, log=log)
+    log.append(f"Done (sent={sent})")
+    print(f"HairNet: === BUSINESS FORGOT PASSWORD ===")
+    for line in log:
+        print(f"  {line}")
+    return jsonify({"ok": True, "log": log})
 
 
 @app.route("/api/auth/business/reset-password", methods=["POST"])

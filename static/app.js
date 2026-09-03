@@ -2034,10 +2034,17 @@ App.doForgotPassword = async function (e) {
   e.preventDefault();
   const fd = new FormData(e.target);
   const email = fd.get('email').trim();
+  console.log('[HairNet] Forgot password requested for:', email);
   try {
-    await apiClient.forgotPassword(email);
+    const res = await apiClient.forgotPassword(email);
+    if (res.log) {
+      console.group('[HairNet] Forgot password log:');
+      res.log.forEach(line => console.log(line));
+      console.groupEnd();
+    }
     toast('If an account exists, a reset link has been sent to ' + email + '.');
   } catch (err) {
+    console.error('[HairNet] Forgot password error:', err);
     toast('Something went wrong: ' + err.message);
   }
 };
@@ -2077,10 +2084,17 @@ App.doBusinessForgotPassword = async function (e) {
   e.preventDefault();
   const fd = new FormData(e.target);
   const business = fd.get('business').trim();
+  console.log('[HairNet] Business forgot password requested for:', business);
   try {
-    await apiClient.businessForgotPassword(business);
+    const res = await apiClient.businessForgotPassword(business);
+    if (res.log) {
+      console.group('[HairNet] Business forgot password log:');
+      res.log.forEach(line => console.log(line));
+      console.groupEnd();
+    }
     toast('If that business exists, a reset link has been sent to the owner.');
   } catch (err) {
+    console.error('[HairNet] Business forgot password error:', err);
     toast('Something went wrong: ' + err.message);
   }
 };
