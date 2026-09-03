@@ -213,12 +213,16 @@ def api_list_services():
 
 @app.route("/api/services", methods=["POST"])
 def api_create_service():
-    user, business = _require_provider()
-    if not user:
-        return jsonify({"error": "only signed-in business owners can create services"}), 403
-    data = request.get_json() or {}
-    data["business"] = business
-    return jsonify(db.create_service(data, owner_id=user["id"])), 201
+    try:
+        user, business = _require_provider()
+        if not user:
+            return jsonify({"error": "only signed-in business owners can create services"}), 403
+        data = request.get_json() or {}
+        data["business"] = business
+        return jsonify(db.create_service(data, owner_id=user["id"])), 201
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return jsonify({"error": str(exc)}), 500
 
 
 @app.route("/api/services/<service_id>", methods=["GET"])
@@ -335,11 +339,15 @@ def api_get_hours():
 
 @app.route("/api/hours", methods=["PUT"])
 def api_save_hours():
-    user, _business = _require_provider()
-    if not user:
-        return jsonify({"error": "only signed-in business owners can set working hours"}), 403
-    db.replace_hours(request.get_json().get("hours", {}))
-    return jsonify({"ok": True})
+    try:
+        user, _business = _require_provider()
+        if not user:
+            return jsonify({"error": "only signed-in business owners can set working hours"}), 403
+        db.replace_hours(request.get_json().get("hours", {}))
+        return jsonify({"ok": True})
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return jsonify({"error": str(exc)}), 500
 
 
 # ---------------------------------------------------------------------------
@@ -416,40 +424,44 @@ def api_business_setup():
     provider finishes onboarding. If they cancel the flow before this call the
     pending Google signup is discarded and no account is created.
     """
-    user = _current_user()
-    # A brand-new provider coming through Google OAuth has no account yet; the
-    # identity lives in the session. Finalize (create) the account here.
-    if not user:
-        pending = _pending_google_signup(handler="provider")
-        if not pending:
-            return jsonify({"error": "not signed in"}), 401
-        try:
-            user, token = db.create_provider_from_google(
-                pending["google_id"], pending["email"], pending["name"]
-            )
-        except ValueError:
-            return jsonify({"error": "email already registered with another account"}), 409
-        _set_user(user, token)
-    if user.get("role") != "provider":
-        return jsonify({"error": "only business owners can set up a business"}), 403
-    data = request.get_json() or {}
-    business = (data.get("business") or "").strip()
-    if not business:
-        return jsonify({"error": "Business name is required."}), 400
-    name = (data.get("name") or user.get("name") or "").strip()
-    category = (data.get("category") or "").strip()
-    street_address = (data.get("street_address") or "").strip()
-    city = (data.get("city") or "").strip()
-    zip_code = (data.get("zip_code") or "").strip()
-    if not category:
-        return jsonify({"error": "A business category is required."}), 400
-    linked = db.link_provider_to_business(user["id"], name, business, category=category, street_address=street_address, city=city, zip_code=zip_code)
-    return jsonify({
-        "ok": True,
-        "business": linked,
-        "category": category,
-        "user": user,
-    })
+    try:
+        user = _current_user()
+        # A brand-new provider coming through Google OAuth has no account yet; the
+        # identity lives in the session. Finalize (create) the account here.
+        if not user:
+            pending = _pending_google_signup(handler="provider")
+            if not pending:
+                return jsonify({"error": "not signed in"}), 401
+            try:
+                user, token = db.create_provider_from_google(
+                    pending["google_id"], pending["email"], pending["name"]
+                )
+            except ValueError:
+                return jsonify({"error": "email already registered with another account"}), 409
+            _set_user(user, token)
+        if user.get("role") != "provider":
+            return jsonify({"error": "only business owners can set up a business"}), 403
+        data = request.get_json() or {}
+        business = (data.get("business") or "").strip()
+        if not business:
+            return jsonify({"error": "Business name is required."}), 400
+        name = (data.get("name") or user.get("name") or "").strip()
+        category = (data.get("category") or "").strip()
+        street_address = (data.get("street_address") or "").strip()
+        city = (data.get("city") or "").strip()
+        zip_code = (data.get("zip_code") or "").strip()
+        if not category:
+            return jsonify({"error": "A business category is required."}), 400
+        linked = db.link_provider_to_business(user["id"], name, business, category=category, street_address=street_address, city=city, zip_code=zip_code)
+        return jsonify({
+            "ok": True,
+            "business": linked,
+            "category": category,
+            "user": user,
+        })
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return jsonify({"error": str(exc)}), 500
 
 
 # ---------------------------------------------------------------------------
