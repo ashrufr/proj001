@@ -730,7 +730,7 @@ def api_google_callback():
         return redirect("/#/account?error=oauth_state_mismatch", code=302)
 
     handler = session.pop("google_oauth_handler", "customer")
-    target = "#/oauth-complete"
+    target = "/#/oauth-complete"
 
     # --- Error from Google ---
     error = request.args.get("error")
