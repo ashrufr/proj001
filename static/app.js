@@ -827,7 +827,7 @@ function viewOnboard() {
       <h1>Set up your business</h1>
       <p>Tell us the name of your business and how to address you.</p>
     </div>
-    <form onsubmit="App.onboardSetupBusiness(event)">
+    <form onsubmit="App.onboardSetupBusiness(event)" oninput="App.validateOnboard()">
       <div class="card" style="padding:22px;margin-bottom:14px">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
           <span style="width:32px;height:32px;border-radius:10px;background:var(--terracotta-soft);color:var(--terracotta);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800">1</span>
@@ -889,7 +889,7 @@ function viewOnboard() {
           <div class="hint">Signed in with Google. Your account is linked to this email.</div>
         </div>
       </div>
-      <button class="btn btn-primary btn-lg btn-block" type="submit">Continue to dashboard ${I.arrowRight}</button>
+      <button id="obz-submit" class="btn btn-primary btn-lg btn-block" type="submit" disabled>Continue to dashboard ${I.arrowRight}</button>
     </form>
   </div>`;
 }
@@ -1739,6 +1739,9 @@ function viewNotFound() {
 
 /* ---------------- after render ---------------- */
 function afterRender(view, id, tab) {
+  if (view === 'onboard') {
+    App.validateOnboard();
+  }
   if (view === 'service') {
     const notes = document.getElementById('notes');
     if (notes) {
@@ -2171,6 +2174,20 @@ function serviceModal(s) {
 }
 App.addService = function () { serviceModal(null); };
 App.editService = function (id) { serviceModal(byId(id)); };
+App.validateOnboard = function () {
+  const form = document.querySelector('form[oninput="App.validateOnboard()"]');
+  if (!form) return;
+  const fd = new FormData(form);
+  const valid = (fd.get('name') || '').trim() &&
+    (fd.get('business') || '').trim() &&
+    (fd.get('category') || '').trim() &&
+    (fd.get('street_address') || '').trim() &&
+    (fd.get('city') || '').trim() &&
+    (fd.get('zip_code') || '').trim() &&
+    (fd.get('serviceName') || '').trim();
+  const btn = document.getElementById('obz-submit');
+  if (btn) btn.disabled = !valid;
+};
 App.onboardSetupBusiness = async function (e) {
   e.preventDefault();
   const fd = new FormData(e.target);
