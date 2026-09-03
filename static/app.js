@@ -1120,7 +1120,7 @@ function signInForm(role, mode) {
       </div>
       <p class="sm" style="margin-bottom:22px">${sub}</p>
       ${tabs}
-      <form onsubmit="${isCreate ? 'App.doSignUp(event)' : 'App.doLogin(event)'}">
+      <form onsubmit="${isCreate ? 'App.doSignUp(event)' : 'App.doLogin(event)'}" oninput="App.validateAuthForm()">
         <input type="hidden" name="role" value="${role}">
         ${isCreate ? `
         <div class="field">
@@ -1154,7 +1154,7 @@ function signInForm(role, mode) {
           <label for="confirm">Confirm password</label>
           <input id="confirm" name="confirm" type="password" minlength="8" placeholder="Repeat your password" required />
         </div>` : ''}
-        <button class="btn btn-primary btn-lg btn-block" type="submit">${heading}</button>
+        <button id="auth-submit" class="btn btn-primary btn-lg btn-block" type="submit" disabled>${heading}</button>
         ${role === 'customer' ? `
         <div style="display:flex;align-items:center;gap:12px;margin:18px 0">
           <div style="flex:1;height:1px;background:var(--stone-200)"></div>
@@ -1272,7 +1272,7 @@ function viewBusinessAuth() {
       <p class="sm" style="margin-bottom:22px">${sub}</p>
       ${tabs}
       ${googleDivider}
-      <form onsubmit="${isCreate ? 'App.doSignUp(event)' : 'App.doLogin(event)'}">
+      <form onsubmit="${isCreate ? 'App.doSignUp(event)' : 'App.doLogin(event)'}" oninput="App.validateAuthForm()">
         <input type="hidden" name="role" value="provider">
         ${isCreate ? `
         <div class="card" style="padding:22px;margin-bottom:14px">
@@ -1352,7 +1352,7 @@ function viewBusinessAuth() {
           <input id="password" name="password" type="password" minlength="8" placeholder="At least 8 characters" required />
           <div class="hint"><a href="#" onclick="App.go(\'#/business/forgot-password\');return false;">Forgot password?</a></div>
         </div>` : ''}
-        <button class="btn btn-primary btn-lg btn-block" type="submit">${isCreate ? 'Create business account' : 'Sign in to dashboard'}</button>
+        <button id="auth-submit" class="btn btn-primary btn-lg btn-block" type="submit" disabled>${isCreate ? 'Create business account' : 'Sign in to dashboard'}</button>
       </form>
       <p class="sm center mt-2"><a href="#" onclick="App.businessSignIn();return false;">Sign in with a shared business password instead</a></p>
     </div>
@@ -1761,6 +1761,9 @@ function afterRender(view, id, tab) {
   if (view === 'onboard') {
     App.validateOnboard();
   }
+  if (view === 'account' || view === 'business') {
+    App.validateAuthForm();
+  }
   if (view === 'service') {
     const notes = document.getElementById('notes');
     if (notes) {
@@ -1921,6 +1924,33 @@ function validatePassword(fd) {
   if (fd.get('confirm') && password !== fd.get('confirm')) { toast('Passwords do not match.'); return null; }
   return password;
 }
+
+App.validateAuthForm = function () {
+  const form = document.querySelector('form[oninput="App.validateAuthForm()"]');
+  if (!form) return;
+  const fd = new FormData(form);
+  const role = fd.get('role');
+  const isCreate = form.getAttribute('onsubmit').includes('doSignUp');
+  let valid;
+  if (isCreate) {
+    valid = (fd.get('name') || '').trim() &&
+      (fd.get('email') || '').trim() &&
+      (fd.get('password') || '').length >= 8 &&
+      (fd.get('confirm') || '').length >= 8 &&
+      (fd.get('password') === fd.get('confirm'));
+    if (role === 'provider') {
+      valid = valid &&
+        (fd.get('business') || '').trim() &&
+        (fd.get('category') || '').trim() &&
+        (fd.get('serviceName') || '').trim();
+    }
+  } else {
+    valid = (fd.get('email') || '').trim() &&
+      (fd.get('password') || '').length >= 8;
+  }
+  const btn = document.getElementById('auth-submit');
+  if (btn) btn.disabled = !valid;
+};
 
 App.doSignUp = async function (e) {
   e.preventDefault();
