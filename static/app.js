@@ -389,6 +389,20 @@ function viewHome() {
           <span class="ok">${I.clock}</span>
           <div><b>60 min saved</b><span>this month</span></div>
         </div>
+        <div class="hero-marquee">
+          <div class="hero-marquee-track">
+            <img src="https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=300&h=200&fit=crop" alt="Barber at work" />
+            <img src="https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=300&h=200&fit=crop" alt="Haircut in progress" />
+            <img src="https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=300&h=200&fit=crop" alt="Barber shop" />
+            <img src="https://images.unsplash.com/photo-1562322140-8baeececf3df?w=300&h=200&fit=crop" alt="Hair styling" />
+            <img src="https://images.unsplash.com/photo-1585747860019-024f473f3832?w=300&h=200&fit=crop" alt="Barber tools" />
+            <img src="https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?w=300&h=200&fit=crop" alt="Haircut" />
+            <img src="https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=300&h=200&fit=crop" alt="Barber at work" />
+            <img src="https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=300&h=200&fit=crop" alt="Haircut in progress" />
+            <img src="https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=300&h=200&fit=crop" alt="Barber shop" />
+            <img src="https://images.unsplash.com/photo-1562322140-8baeececf3df?w=300&h=200&fit=crop" alt="Hair styling" />
+          </div>
+        </div>
       </div>
     </div>
   </section>
